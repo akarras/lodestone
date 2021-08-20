@@ -1,10 +1,157 @@
+use crate::model::server::ServerCategory::{Preferred, Standard};
 use failure::Fail;
+use select::document::Document;
+use select::node::Node;
+use select::predicate::Class;
 use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+use failure::Error;
+
+static SERVER_STATUS_URL: &'static str = "https://na.finalfantasyxiv.com/lodestone/worldstatus/";
 
 #[derive(Clone, Debug, Fail)]
 #[fail(display = "Invalid server string '{}'", _0)]
 pub struct ServerParseError(String);
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum CharacterAvailability {
+    CharactersAvailable,
+    CharactersUnavailable,
+}
+
+impl Display for CharacterAvailability {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            CharacterAvailability::CharactersAvailable => write!(f, "Characters available"),
+            CharacterAvailability::CharactersUnavailable => write!(f, "Characters not available"),
+        }
+    }
+}
+
+impl CharacterAvailability {
+    fn parse_from(node: &Node) -> Option<Self> {
+        node.find(Class("world-ic__available"))
+            .next()
+            .map(|_| Self::CharactersAvailable)
+            .or(node
+                .find(Class("world-ic__unavailable"))
+                .next()
+                .map(|_| Self::CharactersUnavailable))
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ServerStatus {
+    Online,
+    PartialMaintenance,
+    Maintenance,
+}
+
+impl ServerStatus {
+    fn parse_from(node: &Node) -> Option<ServerStatus> {
+        node.find(Class("world-ic__1"))
+            .next()
+            .map(|_| ServerStatus::Online)
+            .or(node
+                .find(Class("world-ic__2"))
+                .next()
+                .map(|_| ServerStatus::PartialMaintenance))
+            .or(node
+                .find(Class("world-ic__3"))
+                .next()
+                .map(|_| ServerStatus::Maintenance))
+    }
+}
+
+impl Display for ServerStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ServerStatus::Online => write!(f, "Online"),
+            ServerStatus::PartialMaintenance => write!(f, "Partial Maintenance"),
+            ServerStatus::Maintenance => write!(f, "Maintenance"),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum ServerCategory {
+    Standard,
+    Preferred,
+}
+
+impl Display for ServerCategory {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Standard => write!(f, "Standard"),
+            Preferred => write!(f, "Preferred"),
+        }
+    }
+}
+
+impl FromStr for ServerCategory {
+    type Err = ServerParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let trimmed = s.trim();
+        match trimmed {
+            "Standard" => Ok(Standard),
+            "Preferred" => Ok(Preferred),
+            _ => Err(ServerParseError(s.to_string())),
+        }
+    }
+}
+
+/// Gets current server status info detailing whether the server is online, or if character creation is limited
+#[derive(Debug, Eq, PartialEq)]
+struct ServerDetails {
+    name: String,
+    status: ServerStatus,
+    category: ServerCategory,
+    character_availability: CharacterAvailability,
+}
+
+impl ServerDetails {
+    /// Downloads the status of all servers including the character availability and preferred status.
+    pub async fn send_async(client: &reqwest::Client) -> Result<Vec<Self>, Error> {
+        let value = client.get(SERVER_STATUS_URL).send().await?.text().await?;
+        let document = Document::from(value.as_str());
+        Ok(Self::parse_from_doc(document))
+    }
+
+    /// *Blocking version*
+    /// Requires feature - `blocking`
+    /// Downloads the status of all servers including the character availability and preferred status.
+    #[cfg(blocking)]
+    pub fn send() -> Result<Vec<Self>, Error> {
+        let value = client.get(SERVER_STATUS_URL).send().text();
+        let document = Document::from(value.as_str());
+        Ok(Self::parse_from_doc(document))
+    }
+
+    fn parse_from_doc(doc: Document) -> Vec<Self> {
+        doc.find(Class("world-list__item"))
+            .filter_map(|n| {
+                let status = ServerStatus::parse_from(&n)?;
+                let node_text = n.find(Class("world-list__world_category")).next()?.text();
+                let category = node_text.parse::<ServerCategory>().ok()?;
+                let name = n
+                    .find(Class("world-list__world_name"))
+                    .next()?
+                    .text()
+                    .trim()
+                    .to_string();
+                let character_availability = CharacterAvailability::parse_from(&n)?;
+                Some(ServerDetails {
+                    name,
+                    status,
+                    category,
+                    character_availability
+                })
+            })
+            .collect()
+    }
+}
 
 /// An enumeration for the servers that are currently available.
 /// This list is taken from https://na.finalfantasyxiv.com/lodestone/worldstatus/
@@ -257,5 +404,30 @@ impl fmt::Display for Server {
         };
 
         write!(f, "{}", server)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::model::server::ServerDetails;
+    use select::document::Document;
+    use std::fs;
+
+    #[test]
+    fn test_status_parse_test() {
+        let sample = fs::read_to_string("./sample_data/server_status.html").unwrap();
+        let document = Document::from(sample.as_str());
+        let servers = ServerDetails::parse_from_doc(document);
+        assert!(servers.iter().next().is_some());
+        for server in servers {
+            eprintln!("{:?}", server);
+        }
+    }
+
+
+    #[tokio::test]
+    async fn test_network_parse() {
+        let server = ServerDetails::send_async(&reqwest::Client::new()).await.unwrap();
+        assert!(server.len() > 10);
     }
 }

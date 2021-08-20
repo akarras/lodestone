@@ -4,9 +4,9 @@
 Library for scraping data off of FFXIV's lodestone
 
 # Features
-nativetls(default) - enables nativetls backend
-rustls - enables rustls backend
-blocking - enables blocking reqwest client
+* nativetls[default] - enables nativetls backend
+* rustls - enables rustls backend
+* blocking - enables blocking reqwest client
 
 # Examples
 
