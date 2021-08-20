@@ -3,9 +3,22 @@
 # lodestone
 Library for scraping data off of FFXIV's lodestone
 
+# Features
+nativetls(default) - enables nativetls backend
+rustls - enables rustls backend
+blocking - enables blocking reqwest client
+
 # Examples
 
 ## Get a profile from a user id
+### Async
+```rust
+use model::profile::Profile;
+
+let profile = Profile::get_async(&reqwest::Client::new(), id);
+```
+
+### Blocking
 ```rust
 use model::profile::Profile;
   
@@ -13,8 +26,22 @@ let profile = Profile::get(user_id).unwrap();
 ```
 
 ## Search for a profile in a datacenter
+
+### Async
 ```rust
-fn search_user(name: &str, dc: Option<Datacenter>) -> Result<Vec<Profile>, Error> {
+fn search_user_async(name: &str, dc: Option<Datacenter>) -> Result<Vec<ProfileSearchResult>, Error> {
+  let search = SearchBuilder::new().character(name);
+        
+  if let Some(d) = dc {
+    search = search.datacenter(d);
+  }
+    
+  search.send_async(&reqwest::Client::new())
+}
+```
+### Blocking
+```rust
+fn search_user(name: &str, dc: Option<Datacenter>) -> Result<Vec<ProfileSearchResult>, Error> {
   let search = SearchBuilder::new().character(name);
         
   if let Some(d) = dc {

@@ -170,7 +170,7 @@ impl FromStr for Server {
             "SHIVA" => Ok(Server::Shiva),
             "TWINTANIA" => Ok(Server::Twintania),
             "ZODIARK" => Ok(Server::Zodiark),
-            
+
             x => Err(ServerParseError(x.into())),
         }
     }

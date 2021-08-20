@@ -2,15 +2,15 @@ use failure::Error;
 use select::document::Document;
 use select::predicate::Class;
 
-use crate::CLIENT;
-use crate::model::profile::Profile;
 use crate::model::datacenter::Datacenter;
 use crate::model::gc::GrandCompany;
 use crate::model::language::Language;
 use crate::model::server::Server;
+#[cfg(blocking)]
+use crate::CLIENT;
 
-use std::fmt::Write;
 use std::collections::HashSet;
+use std::fmt::Write;
 
 static BASE_SEARCH_URL: &str = "https://na.finalfantasyxiv.com/lodestone/character/?";
 
@@ -23,16 +23,70 @@ pub struct SearchBuilder {
     gc: HashSet<GrandCompany>,
 }
 
+/// Holds shallow data about a profile
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProfileSearchResult {
+    pub user_id: u32,
+    pub name: String,
+    pub world: String,
+}
+
 impl SearchBuilder {
     pub fn new() -> Self {
         SearchBuilder {
-            .. Default::default()
+            ..Default::default()
         }
     }
 
     /// Builds the search and executes it, returning a list of profiles
     /// that match the given criteria.
-    pub fn send(self) -> Result<Vec<Profile>, Error> {
+    #[cfg(blocking)]
+    pub fn send(self) -> Result<Vec<ProfileSearchResult>, Error> {
+        let url = self.build_url();
+
+        let response = CLIENT.get(&url).send()?;
+        let text = response.text()?;
+        let doc = Document::from(text.as_str());
+
+        Ok(SearchBuilder::parse_profile(doc))
+    }
+
+    pub async fn send_async(
+        self,
+        client: &reqwest::Client,
+    ) -> Result<Vec<ProfileSearchResult>, Error> {
+        let url = self.build_url();
+        let response = client.get(&url).send().await?;
+        let text = response.text().await?;
+        let doc = Document::from(text.as_str());
+
+        Ok(SearchBuilder::parse_profile(doc))
+    }
+
+    fn parse_profile(doc: Document) -> Vec<ProfileSearchResult> {
+        doc.find(Class("entry__link"))
+            .filter_map(|node| {
+                let user_id = node.attr("href").and_then(|text| {
+                    let digits = text
+                        .chars()
+                        .skip_while(|ch| !ch.is_digit(10))
+                        .take_while(|ch| ch.is_digit(10))
+                        .collect::<String>();
+
+                    digits.parse::<u32>().ok()
+                })?;
+                let name = node.find(Class("entry__name")).map(|m| m.text()).next()?;
+                let world = node.find(Class("entry__world")).map(|m| m.text()).next()?;
+                Some(ProfileSearchResult {
+                    user_id,
+                    name,
+                    world,
+                })
+            })
+            .collect()
+    }
+
+    fn build_url<'a>(self) -> String {
         let mut url = BASE_SEARCH_URL.to_owned();
 
         if let Some(name) = self.character {
@@ -56,7 +110,7 @@ impl SearchBuilder {
             };
         });
 
-        self.gc.iter().for_each(|gc| {        
+        self.gc.iter().for_each(|gc| {
             let _ = match gc {
                 GrandCompany::Unaffiliated => write!(url, "gcid=0&"),
                 GrandCompany::Maelstrom => write!(url, "gcid=1&"),
@@ -65,29 +119,8 @@ impl SearchBuilder {
             };
         });
 
-        let url = url.trim_end_matches('&');
-
-        let response = CLIENT.get(url).send()?;
-        let text = response.text()?;
-        let doc = Document::from(text.as_str());
-
-        Ok(doc.find(Class("entry__link"))
-            .filter_map(|node| node
-                .attr("href")
-                .and_then(|text| {
-                    let digits = text.chars()
-                        .skip_while(|ch| !ch.is_digit(10))
-                        .take_while(|ch| ch.is_digit(10))
-                        .collect::<String>();
-                    
-                    digits.parse::<u32>().ok()
-                })
-                .and_then(|id| {
-                    let profile = Profile::get(id);
-
-                    profile.ok()
-                }))
-            .collect())
+        let url = url.trim_end_matches('&').to_string();
+        url
     }
 
     /// A character name to search for. This can only be called once,

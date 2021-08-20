@@ -1,4 +1,4 @@
-use failure::{Error, Fail, ensure};
+use failure::{ensure, Error, Fail};
 use select::document::Document;
 use select::predicate::{Class, Name};
 
@@ -7,12 +7,15 @@ use std::str::FromStr;
 use crate::model::{
     attribute::{Attribute, Attributes},
     clan::Clan,
-    class::{Classes, ClassInfo, ClassType},
-    gender::Gender, 
-    race::Race, 
+    class::{ClassInfo, ClassType, Classes},
+    gender::Gender,
+    race::Race,
     server::Server,
-    util::load_url
 };
+
+#[cfg(blocking)]
+use crate::model::util::load_url;
+use crate::model::util::load_url_async;
 
 /// Represents ways in which a search over the HTML data might go wrong.
 #[derive(Fail, Debug)]
@@ -39,10 +42,15 @@ macro_rules! ensure_node {
     ($doc:ident, $search:expr) => {{
         ensure_node!($doc, $search, 0)
     }};
-    
+
     ($doc:ident, $search:expr, $nth:expr) => {{
         let node = $doc.find($search).nth($nth);
-        ensure!(node.is_some(), SearchError::NodeNotFound(stringify!($search).to_string() + "(" + stringify!($nth) + ")"));
+        ensure!(
+            node.is_some(),
+            SearchError::NodeNotFound(
+                stringify!($search).to_string() + "(" + stringify!($nth) + ")"
+            )
+        );
         node.unwrap()
     }};
 }
@@ -82,18 +90,34 @@ pub struct Profile {
 
 impl Profile {
     /// Gets a profile for a user given their lodestone user id.
-    /// 
-    /// If you don't have the id, it is possible to use a 
+    ///
+    /// If you don't have the id, it is possible to use a
     /// `SearchBuilder` in order to find their profile directly.
+    #[cfg(blocking)]
     pub fn get(user_id: u32) -> Result<Self, Error> {
         let main_doc = load_url(user_id, None)?;
         let classes_doc = load_url(user_id, Some("class_job"))?;
 
         //  Holds the string for Race, Clan, and Gender in that order
+        Profile::parse_profile(user_id, &main_doc, &classes_doc)
+    }
+
+    pub async fn get_async(client: &reqwest::Client, user_id: u32) -> Result<Self, Error> {
+        let main_doc = load_url_async(client, user_id, None).await?;
+        let classes_doc = load_url_async(client, user_id, Some("class_job")).await?;
+
+        //  Holds the string for Race, Clan, and Gender in that order
+        Profile::parse_profile(user_id, &main_doc, &classes_doc)
+    }
+
+    fn parse_profile(
+        user_id: u32,
+        main_doc: &Document,
+        classes_doc: &Document,
+    ) -> Result<Profile, Error> {
         let char_info = Self::parse_char_info(&main_doc)?;
         let (hp, mp) = Self::parse_char_param(&main_doc)?;
-
-        Ok(Self {
+        let value = Self {
             user_id,
             free_company: Self::parse_free_company(&main_doc),
             name: Self::parse_name(&main_doc)?,
@@ -108,19 +132,20 @@ impl Profile {
             mp,
             attributes: Self::parse_attributes(&main_doc)?,
             classes: Self::parse_classes(&classes_doc)?,
-        })
+        };
+        Ok(value)
     }
 
     /// Get the level of a specific class for this profile.
-    /// 
+    ///
     /// This can be used to query whether or not a job is unlocked.
-    /// For instance if Gladiator is below 30, then Paladin will 
+    /// For instance if Gladiator is below 30, then Paladin will
     /// return None. If Paladin is unlocked, both Gladiator and
     /// Paladin will return the same level.
     pub fn level(&self, class: ClassType) -> Option<u32> {
         match self.class_info(class) {
             Some(v) => Some(v.level),
-            None => None
+            None => None,
         }
     }
 
@@ -161,7 +186,10 @@ impl Profile {
         let text = ensure_node!(doc, Class("frame__chara__world")).text();
         let server = text.split("\u{A0}").next();
 
-        ensure!(server.is_some(), SearchError::InvalidData("Could not find server string.".into()));
+        ensure!(
+            server.is_some(),
+            SearchError::InvalidData("Could not find server string.".into())
+        );
 
         Ok(Server::from_str(&server.unwrap())?)
     }
@@ -180,7 +208,10 @@ impl Profile {
             .map(|e| e.into())
             .collect::<Vec<String>>();
 
-        ensure!(char_info.len() == 3 || char_info.len() == 4, SearchError::InvalidData("character block name".into()));
+        ensure!(
+            char_info.len() == 3 || char_info.len() == 4,
+            SearchError::InvalidData("character block name".into())
+        );
 
         //  If the length is 4, then the race is "Au Ra"
         if char_info.len() == 4 {
@@ -203,15 +234,26 @@ impl Profile {
         let mut hp = None;
         let mut mp = None;
         for item in attr_block.find(Name("li")) {
-            if item.find(Class("character__param__text__hp--en-us")).count() == 1 {
+            if item
+                .find(Class("character__param__text__hp--en-us"))
+                .count()
+                == 1
+            {
                 hp = Some(ensure_node!(item, Name("span")).text().parse::<u32>()?);
-            } else if item.find(Class("character__param__text__mp--en-us")).count() == 1 {
+            } else if item
+                .find(Class("character__param__text__mp--en-us"))
+                .count()
+                == 1
+            {
                 mp = Some(ensure_node!(item, Name("span")).text().parse::<u32>()?);
             } else {
-                continue
+                continue;
             }
         }
-        ensure!(hp.is_some() && mp.is_some(), SearchError::InvalidData("character__param".into()));
+        ensure!(
+            hp.is_some() && mp.is_some(),
+            SearchError::InvalidData("character__param".into())
+        );
         Ok((hp.unwrap(), mp.unwrap()))
     }
 
@@ -220,8 +262,8 @@ impl Profile {
         let mut attributes = Attributes::new();
         for item in block.find(Name("tr")) {
             let name = ensure_node!(item, Name("span")).text();
-            let value = Attribute{
-                level: ensure_node!(item, Name("td")).text().parse::<u16>()?
+            let value = Attribute {
+                level: ensure_node!(item, Name("td")).text().parse::<u16>()?,
             };
             attributes.insert(name, value);
         }
@@ -234,24 +276,33 @@ impl Profile {
         for list in doc.find(Class("character__content")).take(4) {
             for item in list.find(Name("li")) {
                 let name = ensure_node!(item, Class("character__job__name")).text();
-                let classinfo = match ensure_node!(item, Class("character__job__level")).text().as_str() {
+                let classinfo = match ensure_node!(item, Class("character__job__level"))
+                    .text()
+                    .as_str()
+                {
                     "-" => None,
                     level => {
                         let text = ensure_node!(item, Class("character__job__exp")).text();
                         let mut parts = text.split(" / ");
                         let current_xp = parts.next();
-                        ensure!(current_xp.is_some(), SearchError::InvalidData("character__job__exp".into()));
+                        ensure!(
+                            current_xp.is_some(),
+                            SearchError::InvalidData("character__job__exp".into())
+                        );
                         let max_xp = parts.next();
-                        ensure!(max_xp.is_some(), SearchError::InvalidData("character__job__exp".into()));
-                        Some(ClassInfo{
+                        ensure!(
+                            max_xp.is_some(),
+                            SearchError::InvalidData("character__job__exp".into())
+                        );
+                        Some(ClassInfo {
                             level: level.parse()?,
                             current_xp: match current_xp.unwrap() {
                                 "--" => None,
-                                value => Some(value.replace(",", "").parse()?)
+                                value => Some(value.replace(",", "").parse()?),
                             },
                             max_xp: match max_xp.unwrap() {
                                 "--" => None,
-                                value => Some(value.replace(",", "").parse()?)
+                                value => Some(value.replace(",", "").parse()?),
                             },
                         })
                     }
@@ -259,7 +310,10 @@ impl Profile {
 
                 //  For classes that have multiple titles (e.g., Paladin / Gladiator), grab the first one.
                 let name = name.split(" / ").next();
-                ensure!(name.is_some(), SearchError::InvalidData("character__job__name".into()));
+                ensure!(
+                    name.is_some(),
+                    SearchError::InvalidData("character__job__name".into())
+                );
                 let class = ClassType::from_str(&name.unwrap())?;
 
                 //  If the class added was a secondary job, then associated that level

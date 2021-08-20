@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Attribute {
     /// Level of a given attribute
-    pub level: u16
+    pub level: u16,
 }
 
 /// Holds information about a profiles level in a particular class.
@@ -25,4 +25,3 @@ impl Attributes {
         self.0.get(name)
     }
 }
-

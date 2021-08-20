@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 name = "lodestone"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Maid Dog <maiddogsrl@gmail.com>"]
 description = "A website wrapper for FFXIV's lodestone."
 documentation = "https://docs.rs/lodestone"
@@ -14,5 +14,15 @@ license = "MIT"
 [dependencies]
 failure = "0.1.8"
 lazy_static = "1.4.0"
-reqwest = {version = "0.10.7", features = ["blocking"]}
+reqwest = {version = "0.11.4", default-features = false}
 select = "0.5.0"
+
+[dev-dependencies]
+tokio = {version = "1.10.0", features = ["rt", "macros"]}
+
+
+[features]
+blocking = ["reqwest/blocking"]
+rustls = ["reqwest/rustls-tls"]
+native-tls = ["reqwest/native-tls"]
+default = ["native-tls"]
