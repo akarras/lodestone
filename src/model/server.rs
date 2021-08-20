@@ -440,10 +440,13 @@ mod test {
     use crate::model::server::DataCenterDetails;
     use select::document::Document;
     use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn test_status_parse_test() {
-        let sample = fs::read_to_string("./sample_data/server_status.html").unwrap();
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("sample_data/server_status.html");
+        let sample = fs::read_to_string(d).unwrap();
         let document = Document::from(sample.as_str());
         let parsed_dc = DataCenterDetails::parse_from_doc(&document);
         let known_dc = [
