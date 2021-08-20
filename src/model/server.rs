@@ -76,7 +76,7 @@ impl Display for ServerStatus {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum ServerCategory {
+pub enum ServerCategory {
     Standard,
     Preferred,
 }
@@ -105,7 +105,7 @@ impl FromStr for ServerCategory {
 
 /// Gets current server status info detailing whether the server is online, or if character creation is limited
 #[derive(Debug, Eq, PartialEq)]
-struct ServerDetails {
+pub struct ServerDetails {
     name: String,
     status: ServerStatus,
     category: ServerCategory,
@@ -113,7 +113,7 @@ struct ServerDetails {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-struct DataCenterDetails {
+pub struct DataCenterDetails {
     name: Datacenter,
     servers: Vec<ServerDetails>,
 }
