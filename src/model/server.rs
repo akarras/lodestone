@@ -1,4 +1,6 @@
+use crate::model::datacenter::Datacenter;
 use crate::model::server::ServerCategory::{Preferred, Standard};
+use failure::Error;
 use failure::Fail;
 use select::document::Document;
 use select::node::Node;
@@ -6,7 +8,6 @@ use select::predicate::Class;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
-use failure::Error;
 
 static SERVER_STATUS_URL: &'static str = "https://na.finalfantasyxiv.com/lodestone/worldstatus/";
 
@@ -111,12 +112,18 @@ struct ServerDetails {
     character_availability: CharacterAvailability,
 }
 
-impl ServerDetails {
+#[derive(Debug, Eq, PartialEq)]
+struct DataCenterDetails {
+    name: Datacenter,
+    servers: Vec<ServerDetails>,
+}
+
+impl DataCenterDetails {
     /// Downloads the status of all servers including the character availability and preferred status.
     pub async fn send_async(client: &reqwest::Client) -> Result<Vec<Self>, Error> {
         let value = client.get(SERVER_STATUS_URL).send().await?.text().await?;
         let document = Document::from(value.as_str());
-        Ok(Self::parse_from_doc(document))
+        Ok(Self::parse_from_doc(&document))
     }
 
     /// *Blocking version*
@@ -129,7 +136,27 @@ impl ServerDetails {
         Ok(Self::parse_from_doc(document))
     }
 
-    fn parse_from_doc(doc: Document) -> Vec<Self> {
+    fn parse_from_doc(doc: &Document) -> Vec<Self> {
+        doc.find(Class("world-dcgroup__item"))
+            .filter_map(|dc| {
+                let name = dc
+                    .find(Class("world-dcgroup__header"))
+                    .next()?
+                    .text()
+                    .trim()
+                    .parse()
+                    .ok()?;
+                Some(Self {
+                    name,
+                    servers: ServerDetails::parse_from_doc(&dc),
+                })
+            })
+            .collect()
+    }
+}
+
+impl ServerDetails {
+    fn parse_from_doc(doc: &Node) -> Vec<Self> {
         doc.find(Class("world-list__item"))
             .filter_map(|n| {
                 let status = ServerStatus::parse_from(&n)?;
@@ -146,7 +173,7 @@ impl ServerDetails {
                     name,
                     status,
                     category,
-                    character_availability
+                    character_availability,
                 })
             })
             .collect()
@@ -409,7 +436,8 @@ impl fmt::Display for Server {
 
 #[cfg(test)]
 mod test {
-    use crate::model::server::ServerDetails;
+    use crate::model::datacenter::Datacenter;
+    use crate::model::server::DataCenterDetails;
     use select::document::Document;
     use std::fs;
 
@@ -417,17 +445,27 @@ mod test {
     fn test_status_parse_test() {
         let sample = fs::read_to_string("./sample_data/server_status.html").unwrap();
         let document = Document::from(sample.as_str());
-        let servers = ServerDetails::parse_from_doc(document);
-        assert!(servers.iter().next().is_some());
-        for server in servers {
-            eprintln!("{:?}", server);
+        let parsed_dc = DataCenterDetails::parse_from_doc(&document);
+        let known_dc = [
+            Datacenter::Elemental,
+            Datacenter::Gaia,
+            Datacenter::Mana,
+            Datacenter::Aether,
+            Datacenter::Primal,
+            Datacenter::Crystal,
+            Datacenter::Chaos,
+            Datacenter::Light,
+        ];
+        for (i, x) in parsed_dc.iter().enumerate() {
+            assert_eq!(*known_dc.get(i).unwrap(), x.name);
         }
     }
 
-
     #[tokio::test]
     async fn test_network_parse() {
-        let server = ServerDetails::send_async(&reqwest::Client::new()).await.unwrap();
-        assert!(server.len() > 10);
+        let server = DataCenterDetails::send_async(&reqwest::Client::new())
+            .await
+            .unwrap();
+        assert!(server.len() > 4);
     }
 }
