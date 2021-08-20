@@ -15,7 +15,7 @@ static SERVER_STATUS_URL: &'static str = "https://na.finalfantasyxiv.com/lodesto
 #[fail(display = "Invalid server string '{}'", _0)]
 pub struct ServerParseError(String);
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum CharacterAvailability {
     CharactersAvailable,
     CharactersUnavailable,
@@ -42,7 +42,7 @@ impl CharacterAvailability {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ServerStatus {
     Online,
     PartialMaintenance,
@@ -75,7 +75,7 @@ impl Display for ServerStatus {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ServerCategory {
     Standard,
     Preferred,
@@ -104,18 +104,18 @@ impl FromStr for ServerCategory {
 }
 
 /// Gets current server status info detailing whether the server is online, or if character creation is limited
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ServerDetails {
-    name: String,
-    status: ServerStatus,
-    category: ServerCategory,
-    character_availability: CharacterAvailability,
+    pub name: String,
+    pub status: ServerStatus,
+    pub category: ServerCategory,
+    pub character_availability: CharacterAvailability,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct DataCenterDetails {
-    name: Datacenter,
-    servers: Vec<ServerDetails>,
+    pub name: Datacenter,
+    pub servers: Vec<ServerDetails>,
 }
 
 impl DataCenterDetails {
