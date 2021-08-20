@@ -23,6 +23,6 @@ tokio = {version = "1.10.0", features = ["rt", "macros"]}
 
 [features]
 blocking = ["reqwest/blocking"]
-rustls = ["reqwest/rustls-tls"]
+rustls = ["reqwest/rustls"]
 native-tls = ["reqwest/native-tls"]
 default = ["rustls"]
