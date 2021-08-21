@@ -941,9 +941,9 @@ dependencies = [
 
 [[package]]
 name = "select"
-version = "0.5.0"
+version = "0.6.0-alpha.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ee061f90afcc8678bef7a78d0d121683f0ba753f740ff7005f833ec445876b7"
+checksum = "2b51951aa2af52d64920acfe8b0df8d8f4071811a9e575db56a037dd5ee3b894"
 dependencies = [
  "bit-set",
  "html5ever",
