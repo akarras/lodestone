@@ -13,9 +13,9 @@ use crate::model::{
     server::Server,
 };
 
+use crate::model::util::load_profile_url_async;
 #[cfg(blocking)]
 use crate::model::util::load_url;
-use crate::model::util::load_url_async;
 
 /// Represents ways in which a search over the HTML data might go wrong.
 #[derive(Fail, Debug)]
@@ -103,8 +103,10 @@ impl Profile {
     }
 
     pub async fn get_async(client: &reqwest::Client, user_id: u32) -> Result<Self, Error> {
-        let main_doc = load_url_async(client, user_id, None).await?;
-        let classes_doc = load_url_async(client, user_id, Some("class_job")).await?;
+        let class_page = load_profile_url_async(client, user_id, Some("class_job")).await?;
+        let profile_page = load_profile_url_async(client, user_id, None).await?;
+        let main_doc = Document::from(profile_page.as_str());
+        let classes_doc = Document::from(class_page.as_str());
 
         //  Holds the string for Race, Clan, and Gender in that order
         Profile::parse_profile(user_id, &main_doc, &classes_doc)

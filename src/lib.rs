@@ -10,6 +10,7 @@ lazy_static::lazy_static! {
 #[cfg(test)]
 mod tests {
     use crate::model::profile::Profile;
+    use crate::search::SearchBuilder;
 
     #[tokio::test]
     async fn can_grab_profile() {
@@ -35,6 +36,13 @@ mod tests {
             .unwrap();
 
         assert_eq!(profiles.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn chew() {
+        let profile = Profile::get_async(&reqwest::Client::new(), 38686892)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

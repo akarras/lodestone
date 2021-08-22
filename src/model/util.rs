@@ -6,11 +6,11 @@ use select::document::Document;
 /// The URL base for profiles.
 static BASE_PROFILE_URL: &str = "https://na.finalfantasyxiv.com/lodestone/character/";
 
-pub(crate) async fn load_url_async(
+pub(crate) async fn load_profile_url_async(
     client: &reqwest::Client,
     user_id: u32,
     subpage: Option<&str>,
-) -> Result<Document, Error> {
+) -> Result<String, Error> {
     let subpage = match subpage {
         None => "".to_string(),
         Some(v) => format!("{}/", v),
@@ -20,7 +20,7 @@ pub(crate) async fn load_url_async(
         .send()
         .await?;
     let text = response.text().await?;
-    Ok(Document::from(text.as_str()))
+    Ok(text)
 }
 
 #[cfg(blocking)]
