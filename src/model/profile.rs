@@ -1,5 +1,5 @@
 use failure::{ensure, Error, Fail};
-use select::document::Document;
+use select::document::{Document, Find};
 use select::predicate::{Class, Name};
 
 use std::str::FromStr;
@@ -16,6 +16,7 @@ use crate::model::{
 use crate::model::util::load_profile_url_async;
 #[cfg(blocking)]
 use crate::model::util::load_url;
+use select::node::Node;
 
 /// Represents ways in which a search over the HTML data might go wrong.
 #[derive(Fail, Debug)]
@@ -60,6 +61,8 @@ macro_rules! ensure_node {
 pub struct Profile {
     /// The id associated with the profile
     pub user_id: u32,
+    /// The profile's associated title
+    pub title: Option<String>,
     /// The profile's associated Free Company
     pub free_company: Option<String>,
     /// The character's in-game name.
@@ -121,6 +124,7 @@ impl Profile {
         let (hp, mp) = Self::parse_char_param(&main_doc)?;
         let value = Self {
             user_id,
+            title: Self::parse_title(&main_doc),
             free_company: Self::parse_free_company(&main_doc),
             name: Self::parse_name(&main_doc)?,
             nameday: Self::parse_nameday(&main_doc)?,
@@ -162,6 +166,13 @@ impl Profile {
     }
 
     fn parse_free_company(doc: &Document) -> Option<String> {
+        doc.find(Class("character__freecompany__name"))
+            .next()
+            .map(|n| n.find(Name("a")).next().map(|n| n.text()))
+            .flatten()
+    }
+
+    fn parse_title(doc: &Document) -> Option<String> {
         match doc.find(Class("frame__chara__title")).next() {
             Some(node) => Some(node.text()),
             None => None,
