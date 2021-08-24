@@ -123,7 +123,7 @@ impl DataCenterDetails {
     pub async fn send_async(client: &reqwest::Client) -> Result<Vec<Self>, Error> {
         let value = client.get(SERVER_STATUS_URL).send().await?.text().await?;
         let document = Document::from(value.as_str());
-        Ok(Self::parse_from_doc(&document))
+        Self::parse_from_doc(&document)
     }
 
     /// *Blocking version*
@@ -136,17 +136,17 @@ impl DataCenterDetails {
         Ok(Self::parse_from_doc(document))
     }
 
-    fn parse_from_doc(doc: &Document) -> Vec<Self> {
+    fn parse_from_doc(doc: &Document) -> Result<Vec<Self>, Error> {
         doc.find(Class("world-dcgroup__item"))
-            .filter_map(|dc| {
+            .map(|dc| {
                 let name = dc
                     .find(Class("world-dcgroup__header"))
-                    .next()?
+                    .next()
+                    .ok_or_else(|| failure::err_msg("world-dcgroup__header missing"))?
                     .text()
                     .trim()
-                    .parse()
-                    .ok()?;
-                Some(Self {
+                    .parse()?;
+                Ok(Self {
                     name,
                     servers: ServerDetails::parse_from_doc(&dc),
                 })
@@ -168,7 +168,13 @@ impl ServerDetails {
                     .text()
                     .trim()
                     .to_string();
-                let character_availability = CharacterAvailability::parse_from(&n)?;
+
+                let character_availability = match status {
+                    ServerStatus::Online => CharacterAvailability::parse_from(&n)?,
+                    // i still haven't seen this in the wild going to assume i can still parse this
+                    ServerStatus::PartialMaintenance => CharacterAvailability::parse_from(&n)?,
+                    ServerStatus::Maintenance => CharacterAvailability::CharactersUnavailable,
+                };
                 Some(ServerDetails {
                     name,
                     status,
@@ -437,7 +443,7 @@ impl fmt::Display for Server {
 #[cfg(test)]
 mod test {
     use crate::model::datacenter::Datacenter;
-    use crate::model::server::DataCenterDetails;
+    use crate::model::server::{DataCenterDetails, ServerStatus};
     use select::document::Document;
     use std::fs;
     use std::path::PathBuf;
@@ -445,10 +451,14 @@ mod test {
     #[test]
     fn test_status_parse_test() {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("sample_data/server_status.html");
-        let sample = fs::read_to_string(d).unwrap();
+        d.push("sample_data/");
+        let mut normal_path = d.clone();
+        normal_path.push("server_status.html");
+        let mut bad_path = d.clone();
+        bad_path.push("server_status_bad.html");
+        let sample = fs::read_to_string(normal_path).unwrap();
         let document = Document::from(sample.as_str());
-        let parsed_dc = DataCenterDetails::parse_from_doc(&document);
+        let parsed_dc = DataCenterDetails::parse_from_doc(&document).unwrap();
         let known_dc = [
             Datacenter::Elemental,
             Datacenter::Gaia,
@@ -462,6 +472,15 @@ mod test {
         for (i, x) in parsed_dc.iter().enumerate() {
             assert_eq!(*known_dc.get(i).unwrap(), x.name);
         }
+        let maintenance_mode = std::fs::read_to_string(bad_path).unwrap();
+        let bad_servers = Document::from(maintenance_mode.as_str());
+        let parsed_dc = DataCenterDetails::parse_from_doc(&bad_servers).unwrap();
+        for (i, x) in parsed_dc.iter().enumerate() {
+            assert_eq!(*known_dc.get(i).unwrap(), x.name);
+            for dc in &x.servers {
+                assert_eq!(dc.status, ServerStatus::Maintenance);
+            }
+        }
     }
 
     #[tokio::test]
@@ -469,6 +488,7 @@ mod test {
         let server = DataCenterDetails::send_async(&reqwest::Client::new())
             .await
             .unwrap();
+        println!("{:?}", server);
         assert!(server.len() > 4);
     }
 }

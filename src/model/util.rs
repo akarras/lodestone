@@ -1,7 +1,6 @@
 #[cfg(blocking)]
 use crate::CLIENT;
 use failure::Error;
-use select::document::Document;
 
 /// The URL base for profiles.
 static BASE_PROFILE_URL: &str = "https://na.finalfantasyxiv.com/lodestone/character/";

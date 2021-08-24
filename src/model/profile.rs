@@ -1,5 +1,5 @@
 use failure::{ensure, Error, Fail};
-use select::document::{Document, Find};
+use select::document::Document;
 use select::predicate::{Class, Name};
 
 use std::str::FromStr;
@@ -16,7 +16,6 @@ use crate::model::{
 use crate::model::util::load_profile_url_async;
 #[cfg(blocking)]
 use crate::model::util::load_url;
-use select::node::Node;
 
 /// Represents ways in which a search over the HTML data might go wrong.
 #[derive(Fail, Debug)]
