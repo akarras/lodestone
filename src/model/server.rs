@@ -1,5 +1,5 @@
 use crate::model::datacenter::Datacenter;
-use crate::model::server::ServerCategory::{Preferred, Standard};
+use crate::model::server::ServerCategory::{Congested, Preferred, Standard};
 use failure::Error;
 use failure::Fail;
 use select::document::Document;
@@ -11,14 +11,18 @@ use std::str::FromStr;
 
 static SERVER_STATUS_URL: &'static str = "https://na.finalfantasyxiv.com/lodestone/worldstatus/";
 
-#[derive(Clone, Debug, Fail)]
-#[fail(display = "Invalid server string '{}'", _0)]
-pub struct ServerParseError(String);
-
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum CharacterAvailability {
     CharactersAvailable,
     CharactersUnavailable,
+}
+
+#[derive(Clone, Debug, Fail)]
+pub enum ServerParseError {
+    #[fail(display = "node was missing: {}", node)]
+    NodeMissing { node: String },
+    #[fail(display = "invalid server status")]
+    CategoryParseError { actual: String },
 }
 
 impl Display for CharacterAvailability {
@@ -31,45 +35,62 @@ impl Display for CharacterAvailability {
 }
 
 impl CharacterAvailability {
-    fn parse_from(node: &Node) -> Option<Self> {
+    fn parse_from(node: &Node) -> Result<Self, ServerParseError> {
         node.find(Class("world-ic__available"))
             .next()
+            .ok_or(ServerParseError::NodeMissing {
+                node: "world-ic__available".to_string(),
+            })
             .map(|_| Self::CharactersAvailable)
             .or(node
                 .find(Class("world-ic__unavailable"))
                 .next()
+                .ok_or(ServerParseError::NodeMissing {
+                    node: "world-ic__unavailable".to_string(),
+                })
                 .map(|_| Self::CharactersUnavailable))
     }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ServerStatus {
-    Online,
-    PartialMaintenance,
+    Online(ServerCategory, CharacterAvailability),
+    PartialMaintenance(ServerCategory, CharacterAvailability),
     Maintenance,
 }
 
 impl ServerStatus {
-    fn parse_from(node: &Node) -> Option<ServerStatus> {
+    fn parse_from(node: &Node) -> Result<ServerStatus, Error> {
         node.find(Class("world-ic__1"))
             .next()
-            .map(|_| ServerStatus::Online)
+            .ok_or(ServerParseError::NodeMissing {
+                node: "world-ic__1".to_string(),
+            })
+            .map(|_| Ok(ServerStatus::Online(ServerCategory::parse_from(node)?, CharacterAvailability::parse_from(node)?)))
             .or(node
                 .find(Class("world-ic__2"))
                 .next()
-                .map(|_| ServerStatus::PartialMaintenance))
+                .ok_or(ServerParseError::NodeMissing {
+                    node: "world-ic__2".to_string(),
+                })
+                .map(|_| Ok(ServerStatus::PartialMaintenance(ServerCategory::parse_from(node)?, CharacterAvailability::parse_from(node)?))))
             .or(node
                 .find(Class("world-ic__3"))
                 .next()
-                .map(|_| ServerStatus::Maintenance))
+                .ok_or(ServerParseError::NodeMissing {
+                    node: "world-ic__3".to_string(),
+                })
+                .map(|_| Ok(ServerStatus::Maintenance)))?
+
     }
 }
 
 impl Display for ServerStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ServerStatus::Online => write!(f, "Online"),
-            ServerStatus::PartialMaintenance => write!(f, "Partial Maintenance"),
+            // only write the outer state
+            ServerStatus::Online(_, _) => write!(f, "Online"),
+            ServerStatus::PartialMaintenance(_, _) => write!(f, "Partial Maintenance"),
             ServerStatus::Maintenance => write!(f, "Maintenance"),
         }
     }
@@ -79,6 +100,20 @@ impl Display for ServerStatus {
 pub enum ServerCategory {
     Standard,
     Preferred,
+    Congested,
+}
+
+impl ServerCategory {
+    fn parse_from(n: &Node) -> Result<Self, Error> {
+        let node_text = n
+            .find(Class("world-list__world_category"))
+            .next()
+            .ok_or(ServerParseError::NodeMissing {
+                node: "world-list__world_category".to_string(),
+            })?
+            .text();
+        Ok(node_text.parse::<ServerCategory>()?)
+    }
 }
 
 impl Display for ServerCategory {
@@ -86,6 +121,7 @@ impl Display for ServerCategory {
         match self {
             Standard => write!(f, "Standard"),
             Preferred => write!(f, "Preferred"),
+            Congested => write!(f, "Conjested"),
         }
     }
 }
@@ -98,7 +134,10 @@ impl FromStr for ServerCategory {
         match trimmed {
             "Standard" => Ok(Standard),
             "Preferred" => Ok(Preferred),
-            _ => Err(ServerParseError(s.to_string())),
+            "Congested" => Ok(Congested),
+            _ => Err(ServerParseError::CategoryParseError {
+                actual: trimmed.to_string(),
+            }),
         }
     }
 }
@@ -107,9 +146,7 @@ impl FromStr for ServerCategory {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ServerDetails {
     pub name: String,
-    pub status: ServerStatus,
-    pub category: ServerCategory,
-    pub character_availability: CharacterAvailability,
+    pub status: ServerStatus
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -142,13 +179,15 @@ impl DataCenterDetails {
                 let name = dc
                     .find(Class("world-dcgroup__header"))
                     .next()
-                    .ok_or_else(|| failure::err_msg("world-dcgroup__header missing"))?
+                    .ok_or_else(|| ServerParseError::NodeMissing {
+                        node: "world-dcgroup__header missing".to_string(),
+                    })?
                     .text()
                     .trim()
                     .parse()?;
                 Ok(Self {
                     name,
-                    servers: ServerDetails::parse_from_doc(&dc),
+                    servers: ServerDetails::parse_from_doc(&dc)?,
                 })
             })
             .collect()
@@ -156,30 +195,24 @@ impl DataCenterDetails {
 }
 
 impl ServerDetails {
-    fn parse_from_doc(doc: &Node) -> Vec<Self> {
+    fn parse_from_doc(doc: &Node) -> Result<Vec<Self>, Error> {
         doc.find(Class("world-list__item"))
-            .filter_map(|n| {
+            .map(|n| {
                 let status = ServerStatus::parse_from(&n)?;
-                let node_text = n.find(Class("world-list__world_category")).next()?.text();
-                let category = node_text.parse::<ServerCategory>().ok()?;
+
                 let name = n
                     .find(Class("world-list__world_name"))
-                    .next()?
+                    .next()
+                    .ok_or(ServerParseError::NodeMissing {
+                        node: "world-list__world_name".to_string(),
+                    })?
                     .text()
                     .trim()
                     .to_string();
 
-                let character_availability = match status {
-                    ServerStatus::Online => CharacterAvailability::parse_from(&n)?,
-                    // i still haven't seen this in the wild going to assume i can still parse this
-                    ServerStatus::PartialMaintenance => CharacterAvailability::parse_from(&n)?,
-                    ServerStatus::Maintenance => CharacterAvailability::CharactersUnavailable,
-                };
-                Some(ServerDetails {
+                Ok(ServerDetails {
                     name,
-                    status,
-                    category,
-                    character_availability,
+                    status
                 })
             })
             .collect()
@@ -351,7 +384,7 @@ impl FromStr for Server {
             "TWINTANIA" => Ok(Server::Twintania),
             "ZODIARK" => Ok(Server::Zodiark),
 
-            x => Err(ServerParseError(x.into())),
+            x => Err(ServerParseError::CategoryParseError { actual: x.into() }),
         }
     }
 }
