@@ -21,7 +21,7 @@ pub enum CharacterAvailability {
 pub enum ServerParseError {
     #[fail(display = "node was missing: {}", node)]
     NodeMissing { node: String },
-    #[fail(display = "invalid server status")]
+    #[fail(display = "invalid server status, found {}", actual)]
     CategoryParseError { actual: String },
 }
 

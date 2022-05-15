@@ -55,6 +55,38 @@ macro_rules! ensure_node {
     }};
 }
 
+/// Holds data about the images for this character
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CharacterImages {
+    /// Small character avatar
+    pub avatar_small: String,
+    /// Full body image of the character
+    pub full_body: String
+}
+
+#[derive(Clone, Debug, Fail)]
+pub enum CharacterParseError {
+    #[fail(display = "src was missing on node {}", node)]
+    UrlMissing{ node: String },
+    #[fail(display = "unable to find node {} with an image", node)]
+    NodeMissing{ node: String}
+}
+
+impl CharacterImages {
+    fn parse(doc: &Document) -> Result<Self, Error> {
+        let face_url = ensure_node!(doc, Class("character-block__face")).attr("src").ok_or(CharacterParseError::UrlMissing {node: "character-block__face".into()})?;
+        let node = "js__image_popup".to_string();
+        let body = doc.find(Class(node.as_str())).next()
+            .ok_or_else(|| CharacterParseError::NodeMissing { node: node.clone() })?
+            .attr("href")
+            .ok_or_else(|| CharacterParseError::UrlMissing { node })?;
+        Ok(Self {
+            avatar_small: face_url.to_string(),
+            full_body: body.to_string()
+        })
+    }
+}
+
 /// Holds all the data for a profile retrieved via Lodestone.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Profile {
@@ -88,6 +120,8 @@ pub struct Profile {
     pub attributes: Attributes,
     /// A list of classes and their corresponding levels.
     classes: Classes,
+    /// Collection of character images
+    pub character_images: CharacterImages
 }
 
 impl Profile {
@@ -137,6 +171,7 @@ impl Profile {
             mp,
             attributes: Self::parse_attributes(&main_doc)?,
             classes: Self::parse_classes(&classes_doc)?,
+            character_images: CharacterImages::parse(&main_doc)?,
         };
         Ok(value)
     }
