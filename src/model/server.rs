@@ -1,5 +1,5 @@
 use crate::model::datacenter::Datacenter;
-use crate::model::server::ServerCategory::{Congested, Preferred, Standard};
+use crate::model::server::ServerCategory::{Congested, New, Preferred, Standard};
 use failure::Error;
 use failure::Fail;
 use select::document::Document;
@@ -101,6 +101,7 @@ pub enum ServerCategory {
     Standard,
     Preferred,
     Congested,
+    New
 }
 
 impl ServerCategory {
@@ -122,6 +123,7 @@ impl Display for ServerCategory {
             Standard => write!(f, "Standard"),
             Preferred => write!(f, "Preferred"),
             Congested => write!(f, "Conjested"),
+            New => write!(f, "New"),
         }
     }
 }
@@ -135,6 +137,7 @@ impl FromStr for ServerCategory {
             "Standard" => Ok(Standard),
             "Preferred" => Ok(Preferred),
             "Congested" => Ok(Congested),
+            "New" => Ok(New),
             _ => Err(ServerParseError::CategoryParseError {
                 actual: trimmed.to_string(),
             }),
@@ -300,6 +303,12 @@ pub enum Server {
     Shiva,
     Twintania,
     Zodiark,
+    // Oceania
+    Bismarck,
+    Ravana,
+    Sephirot,
+    Sophia,
+    Zurvan,
 }
 
 /// Case insensitive FromStr impl for servers.
@@ -383,7 +392,12 @@ impl FromStr for Server {
             "SHIVA" => Ok(Server::Shiva),
             "TWINTANIA" => Ok(Server::Twintania),
             "ZODIARK" => Ok(Server::Zodiark),
-
+            // Materia
+            "Bismarck" => Ok(Server::Bismarck),
+            "Ravana" => Ok(Server::Ravana),
+            "Sephirot" => Ok(Server::Sephirot),
+            "Sophia" => Ok(Server::Sophia),
+            "Zurvan" => Ok(Server::Zurvan),
             x => Err(ServerParseError::CategoryParseError { actual: x.into() }),
         }
     }
@@ -467,6 +481,11 @@ impl fmt::Display for Server {
             Server::Shiva => "Shiva",
             Server::Twintania => "Twintania",
             Server::Zodiark => "Zodiark",
+            Server::Bismarck => "Bismarck",
+            Server::Ravana => "Ravana",
+            Server::Sephirot => "Sephirot",
+            Server::Sophia => "Sophia",
+            Server::Zurvan => "Zurvan",
         };
 
         write!(f, "{}", server)

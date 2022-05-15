@@ -14,7 +14,7 @@ license = "MIT"
 [dependencies]
 failure = "0.1.8"
 lazy_static = "1.4.0"
-reqwest = {version = "0.11.4", default-features = false}
+reqwest = {version = "0.11.10", default-features = false}
 select = "0.5.0"
 
 [dev-dependencies]
@@ -23,6 +23,6 @@ tokio = {version = "1.10.0", features = ["rt-multi-thread", "macros"]}
 
 [features]
 blocking = ["reqwest/blocking"]
-rustls = ["reqwest/rustls"]
+rustls-tls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
-default = ["rustls"]
+default = ["rustls-tls"]

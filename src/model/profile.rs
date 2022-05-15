@@ -196,14 +196,9 @@ impl Profile {
 
     fn parse_server(doc: &Document) -> Result<Server, Error> {
         let text = ensure_node!(doc, Class("frame__chara__world")).text();
-        let server = text.split("\u{A0}").next();
-
-        ensure!(
-            server.is_some(),
-            SearchError::InvalidData("Could not find server string.".into())
-        );
-
-        Ok(Server::from_str(&server.unwrap())?)
+        let server = text.split("\u{A0}").next().ok_or(SearchError::InvalidData("Could not find server string.".into()))?;
+        // Servers now show as Server Name [Datacenter]
+        Ok(Server::from_str(&server.split(" ").next().ok_or(SearchError::InvalidData("Server string was empty".into()))?)?)
     }
 
     fn parse_char_info(doc: &Document) -> Result<CharInfo, Error> {
@@ -321,12 +316,9 @@ impl Profile {
                 };
 
                 //  For classes that have multiple titles (e.g., Paladin / Gladiator), grab the first one.
-                let name = name.split(" / ").next();
-                ensure!(
-                    name.is_some(),
-                    SearchError::InvalidData("character__job__name".into())
-                );
-                let class = ClassType::from_str(&name.unwrap())?;
+                let name = name.split(" / ").next().ok_or(SearchError::InvalidData("character__job__name".into()))?;
+
+                let class = ClassType::from_str(name)?;
 
                 //  If the class added was a secondary job, then associated that level
                 //  with its lower level counterpart as well. This makes returning the
