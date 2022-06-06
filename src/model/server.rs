@@ -1,7 +1,6 @@
 use crate::model::datacenter::Datacenter;
 use crate::model::server::ServerCategory::{Congested, New, Preferred, Standard};
 use failure::Error;
-use failure::Fail;
 use select::document::Document;
 use select::node::Node;
 use select::predicate::Class;
@@ -17,11 +16,11 @@ pub enum CharacterAvailability {
     CharactersUnavailable,
 }
 
-#[derive(Clone, Debug, Fail)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum ServerParseError {
-    #[fail(display = "node was missing: {}", node)]
+    #[error("node was missing: {}", node)]
     NodeMissing { node: String },
-    #[fail(display = "invalid server status, found {}", actual)]
+    #[error("invalid server status, found {}", actual)]
     CategoryParseError { actual: String },
 }
 
@@ -251,7 +250,7 @@ pub enum Server {
     Yojimbo,
     Zeromus,
     //  Mana
-    Aniuma,
+    Anima,
     Asura,
     Belias,
     Chocobo,
@@ -341,7 +340,7 @@ impl FromStr for Server {
             "YOJIMBO" => Ok(Server::Yojimbo),
             "ZEROMUS" => Ok(Server::Zeromus),
             //  Mana
-            "ANIUMA" => Ok(Server::Aniuma),
+            "ANIMA" | "ANIUMA" => Ok(Server::Anima),
             "ASURA" => Ok(Server::Asura),
             "BELIAS" => Ok(Server::Belias),
             "CHOCOBO" => Ok(Server::Chocobo),
@@ -393,11 +392,11 @@ impl FromStr for Server {
             "TWINTANIA" => Ok(Server::Twintania),
             "ZODIARK" => Ok(Server::Zodiark),
             // Materia
-            "Bismarck" => Ok(Server::Bismarck),
-            "Ravana" => Ok(Server::Ravana),
-            "Sephirot" => Ok(Server::Sephirot),
-            "Sophia" => Ok(Server::Sophia),
-            "Zurvan" => Ok(Server::Zurvan),
+            "BISMARCK" => Ok(Server::Bismarck),
+            "RAVANA" => Ok(Server::Ravana),
+            "SEPHIROT" => Ok(Server::Sephirot),
+            "SOPHIA" => Ok(Server::Sophia),
+            "ZURVAN" => Ok(Server::Zurvan),
             x => Err(ServerParseError::CategoryParseError { actual: x.into() }),
         }
     }
@@ -430,7 +429,7 @@ impl fmt::Display for Server {
             Server::Yojimbo => "Yojimbo",
             Server::Zeromus => "Zeromus",
             //  Mana
-            Server::Aniuma => "Aniuma",
+            Server::Anima => "Aniuma",
             Server::Asura => "Asura",
             Server::Belias => "Belias",
             Server::Chocobo => "Chocobo",

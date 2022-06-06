@@ -1,9 +1,8 @@
-use failure::Fail;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, Fail)]
-#[fail(display = "Invalid datacenter string '{}'", _0)]
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("Invalid datacenter string '{0}'")]
 pub struct DatacenterParseError(String);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

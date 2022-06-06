@@ -1,8 +1,8 @@
-use failure::Fail;
+use thiserror::Error;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, Fail)]
-#[fail(display = "Invalid grand company string '{}'", _0)]
+#[derive(Clone, Debug, Error)]
+#[error("Invalid grand company string '{0}'")]
 pub struct GrandCompanyParseError(String);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
