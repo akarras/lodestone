@@ -63,7 +63,7 @@ enum FreeCompanyParseError {
 }
 
 #[derive(Debug, ThisError)]
-enum FreeCompanyLeaderboardError {
+pub enum FreeCompanyLeaderboardError {
     #[error("{0}")]
     FreeCompanyParseError(#[from] FreeCompanyParseError),
     #[error("{0}")]
