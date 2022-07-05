@@ -104,7 +104,7 @@ impl FreeCompanyLeaderboardQuery {
         let mut fc_data_children = free_company_data.children().filter(|e| Element.matches(e));
         let free_company_name = fc_data_children.next().ok_or(FreeCompanyMissing)?.text();
         let server_str = fc_data_children.next().ok_or(WorldNameMissing)?.text();
-        let mut server_str = server_str.split(" ");
+        let mut server_str = server_str.split(' ');
         let world_name = server_str.next().ok_or(WorldNameMissing)?.trim().parse()?;
         // dc text should be [Datacenter], remove []'s so it can be parsed
         let datacenter = server_str.next().ok_or(DataCenterMissing)?;
@@ -163,6 +163,6 @@ mod test {
         };
 
         let weekly = query.weekly(None).await.unwrap();
-        assert!(weekly.len() > 0);
+        assert!(!weekly.is_empty());
     }
 }

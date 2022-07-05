@@ -8,7 +8,7 @@ use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use crate::LodestoneError;
 
-static SERVER_STATUS_URL: &'static str = "https://na.finalfantasyxiv.com/lodestone/worldstatus/";
+static SERVER_STATUS_URL: &str = "https://na.finalfantasyxiv.com/lodestone/worldstatus/";
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum CharacterAvailability {
@@ -43,7 +43,7 @@ impl CharacterAvailability {
                 node: "world-ic__available".to_string(),
             })
             .map(|_| Self::CharactersAvailable)
-            .or(node
+            .or_else(|_|node
                 .find(Class("world-ic__unavailable"))
                 .next()
                 .ok_or(ServerParseError::NodeMissing {
@@ -68,14 +68,14 @@ impl ServerStatus {
                 node: "world-ic__1".to_string(),
             })
             .map(|_| Ok(ServerStatus::Online(ServerCategory::parse_from(node)?, CharacterAvailability::parse_from(node)?)))
-            .or(node
+            .or_else(|_| node
                 .find(Class("world-ic__2"))
                 .next()
                 .ok_or(ServerParseError::NodeMissing {
                     node: "world-ic__2".to_string(),
                 })
                 .map(|_| Ok(ServerStatus::PartialMaintenance(ServerCategory::parse_from(node)?, CharacterAvailability::parse_from(node)?))))
-            .or(node
+            .or_else(|_| node
                 .find(Class("world-ic__3"))
                 .next()
                 .ok_or(ServerParseError::NodeMissing {
@@ -114,7 +114,7 @@ impl ServerCategory {
                 node: "world-list__world_category".to_string(),
             })?
             .text();
-        Ok(node_text.parse::<ServerCategory>()?)
+        node_text.parse::<ServerCategory>()
     }
 }
 
@@ -171,7 +171,7 @@ impl DataCenterDetails {
     /// Requires feature - `blocking`
     /// Downloads the status of all servers including the character availability and preferred status.
     #[cfg(blocking)]
-    pub fn send() -> Result<Vec<Self>, Error> {
+    pub fn send() -> Result<Vec<Self>, LodestoneError> {
         let value = client.get(SERVER_STATUS_URL).send().text();
         let document = Document::from(value.as_str());
         Ok(Self::parse_from_doc(document))

@@ -91,7 +91,7 @@ impl CharacterImages {
         let body = doc.find(Class(node.as_str())).next()
             .ok_or_else(|| CharacterParseError::NodeMissing { node: node.clone() })?
             .attr("href")
-            .ok_or_else(|| CharacterParseError::UrlMissing { node })?;
+            .ok_or(CharacterParseError::UrlMissing { node })?;
         Ok(Self {
             avatar_small: face_url.to_string(),
             full_body: body.to_string()
@@ -163,7 +163,7 @@ impl Profile {
         let classes_doc = Document::from(class_page.as_str());
 
         //  Holds the string for Race, Clan, and Gender in that order
-        Ok(Profile::parse_profile(user_id, &main_doc, &classes_doc)?)
+        Profile::parse_profile(user_id, &main_doc, &classes_doc)
     }
 
     fn parse_profile(
@@ -171,25 +171,25 @@ impl Profile {
         main_doc: &Document,
         classes_doc: &Document,
     ) -> Result<Profile, LodestoneError> {
-        let char_info = Self::parse_char_info(&main_doc)?;
-        let (hp, mp) = Self::parse_char_param(&main_doc)?;
+        let char_info = Self::parse_char_info(main_doc)?;
+        let (hp, mp) = Self::parse_char_param(main_doc)?;
         let value = Self {
             user_id,
-            title: Self::parse_title(&main_doc),
-            free_company: Self::parse_free_company(&main_doc),
-            name: Self::parse_name(&main_doc)?,
-            nameday: Self::parse_nameday(&main_doc)?,
-            guardian: Self::parse_guardian(&main_doc)?,
-            city_state: Self::parse_city_state(&main_doc)?,
-            server: Self::parse_server(&main_doc)?,
+            title: Self::parse_title(main_doc),
+            free_company: Self::parse_free_company(main_doc),
+            name: Self::parse_name(main_doc)?,
+            nameday: Self::parse_nameday(main_doc)?,
+            guardian: Self::parse_guardian(main_doc)?,
+            city_state: Self::parse_city_state(main_doc)?,
+            server: Self::parse_server(main_doc)?,
             race: char_info.race,
             clan: char_info.clan,
             gender: char_info.gender,
             hp,
             mp_or_gp: mp,
-            attributes: Self::parse_attributes(&main_doc)?,
-            classes: Self::parse_classes(&classes_doc)?,
-            character_images: CharacterImages::parse(&main_doc)?,
+            attributes: Self::parse_attributes(main_doc)?,
+            classes: Self::parse_classes(classes_doc)?,
+            character_images: CharacterImages::parse(main_doc)?,
         };
         Ok(value)
     }
@@ -201,10 +201,7 @@ impl Profile {
     /// return None. If Paladin is unlocked, both Gladiator and
     /// Paladin will return the same level.
     pub fn level(&self, class: ClassType) -> Option<u32> {
-        match self.class_info(class) {
-            Some(v) => Some(v.level),
-            None => None,
-        }
+        self.class_info(class).map(|v| v.level)
     }
 
     /// Gets this profile's data for a given class
@@ -220,15 +217,11 @@ impl Profile {
     fn parse_free_company(doc: &Document) -> Option<String> {
         doc.find(Class("character__freecompany__name"))
             .next()
-            .map(|n| n.find(Name("a")).next().map(|n| n.text()))
-            .flatten()
+            .and_then(|n| n.find(Name("a")).next().map(|n| n.text()))
     }
 
     fn parse_title(doc: &Document) -> Option<String> {
-        match doc.find(Class("frame__chara__title")).next() {
-            Some(node) => Some(node.text()),
-            None => None,
-        }
+        doc.find(Class("frame__chara__title")).next().map(|node| node.text())
     }
 
     fn parse_name(doc: &Document) -> Result<String, SearchError> {
@@ -249,23 +242,22 @@ impl Profile {
 
     fn parse_server(doc: &Document) -> Result<Server, SearchError> {
         let text = ensure_node!(doc, Class("frame__chara__world")).text();
-        let server = text.split("\u{A0}").next().ok_or(SearchError::InvalidData("Could not find server string.".into()))?;
+        let server = text.split('\u{A0}').next().ok_or(SearchError::InvalidData("Could not find server string."))?;
         // Servers now show as Server Name [Datacenter]
-        Ok(Server::from_str(&server.split(" ").next().ok_or(SearchError::InvalidData("Server string was empty".into()))?)?)
+        Ok(Server::from_str(server.split(' ').next().ok_or(SearchError::InvalidData("Server string was empty"))?)?)
     }
 
     fn parse_char_info(doc: &Document) -> Result<CharInfo, SearchError> {
         let char_block = {
             let mut block = ensure_node!(doc, Class("character-block__name")).inner_html();
-            block = block.replace(" ", "_");
+            block = block.replace(' ', "_");
             block = block.replace("<br>", " ");
             block.replace("_/_", " ")
         };
 
         let char_info = char_block
             .split_whitespace()
-            .map(|e| e.replace("_", " "))
-            .map(|e| e.into())
+            .map(|e| e.replace('_', " "))
             .collect::<Vec<String>>();
 
         if char_info.len() == 3 || char_info.len() == 4 {
@@ -343,24 +335,24 @@ impl Profile {
                     level => {
                         let text = ensure_node!(item, Class("character__job__exp")).text();
                         let mut parts = text.split(" / ");
-                        let current_xp = parts.next().ok_or(SearchError::InvalidData("character__job__exp".into()))?;
+                        let current_xp = parts.next().ok_or(SearchError::InvalidData("character__job__exp"))?;
                         let max_xp = parts.next().ok_or(SearchError::InvalidData("character__job__exp"))?;
                         Some(ClassInfo {
                             level: level.parse()?,
                             current_xp: match current_xp {
                                 "--" => None,
-                                value => Some(value.replace(",", "").parse()?),
+                                value => Some(value.replace(',', "").parse()?),
                             },
                             max_xp: match max_xp {
                                 "--" => None,
-                                value => Some(value.replace(",", "").parse()?),
+                                value => Some(value.replace(',', "").parse()?),
                             },
                         })
                     }
                 };
 
                 //  For classes that have multiple titles (e.g., Paladin / Gladiator), grab the first one.
-                let name = name.split(" / ").next().ok_or(SearchError::InvalidData("character__job__name".into()))?;
+                let name = name.split(" / ").next().ok_or(SearchError::InvalidData("character__job__name"))?;
 
                 let class = ClassType::from_str(name)?;
 

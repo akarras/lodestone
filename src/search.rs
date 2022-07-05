@@ -69,8 +69,8 @@ impl SearchBuilder {
                 let user_id = node.attr("href").and_then(|text| {
                     let digits = text
                         .chars()
-                        .skip_while(|ch| !ch.is_digit(10))
-                        .take_while(|ch| ch.is_digit(10))
+                        .skip_while(|ch| !ch.is_ascii_digit())
+                        .take_while(|ch| ch.is_ascii_digit())
                         .collect::<String>();
 
                     digits.parse::<u32>().ok()
@@ -86,7 +86,7 @@ impl SearchBuilder {
             .collect()
     }
 
-    fn build_url<'a>(self) -> String {
+    fn build_url(self) -> String {
         let mut url = BASE_SEARCH_URL.to_owned();
 
         if let Some(name) = self.character {
