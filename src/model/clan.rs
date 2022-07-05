@@ -1,8 +1,8 @@
-use failure::Fail;
 use std::str::FromStr;
+use thiserror::Error;
 
-#[derive(Clone, Debug, Fail)]
-#[fail(display = "Invalid clan string '{}'", _0)]
+#[derive(Clone, Debug, Error)]
+#[error("Invalid clan string '{0}'")]
 pub struct ClanParseError(String);
 
 /// Enumeration for the clans available in XIV.

@@ -1,9 +1,9 @@
-use failure::Fail;
 use std::collections::HashMap;
 use std::str::FromStr;
+use thiserror::Error;
 
-#[derive(Clone, Debug, Fail)]
-#[fail(display = "Invalid class type '{}'", _0)]
+#[derive(Clone, Debug, Error)]
+#[error("Invalid class type '{0}'")]
 pub struct ClassTypeParseError(String);
 
 /// Contains all the data for a class/job insofar as it pertains to a specific character

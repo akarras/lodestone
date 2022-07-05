@@ -1,4 +1,3 @@
-use failure::Error;
 use select::document::Document;
 use select::predicate::Class;
 
@@ -11,6 +10,7 @@ use crate::CLIENT;
 
 use std::collections::HashSet;
 use std::fmt::Write;
+use crate::LodestoneError;
 
 static BASE_SEARCH_URL: &str = "https://na.finalfantasyxiv.com/lodestone/character/?";
 
@@ -41,7 +41,7 @@ impl SearchBuilder {
     /// Builds the search and executes it, returning a list of profiles
     /// that match the given criteria.
     #[cfg(blocking)]
-    pub fn send(self) -> Result<Vec<ProfileSearchResult>, Error> {
+    pub fn send(self) -> Result<Vec<ProfileSearchResult>, LodestoneError> {
         let url = self.build_url();
 
         let response = CLIENT.get(&url).send()?;
@@ -54,7 +54,7 @@ impl SearchBuilder {
     pub async fn send_async(
         self,
         client: &reqwest::Client,
-    ) -> Result<Vec<ProfileSearchResult>, Error> {
+    ) -> Result<Vec<ProfileSearchResult>, LodestoneError> {
         let url = self.build_url();
         let response = client.get(&url).send().await?;
         let text = response.text().await?;

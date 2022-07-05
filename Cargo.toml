@@ -12,7 +12,6 @@ categories = ["api-bindings"]
 license = "MIT"
 
 [dependencies]
-failure = "0.1.8"
 lazy_static = "1.4.0"
 reqwest = {version = "0.11.10", default-features = false}
 select = "0.5.0"

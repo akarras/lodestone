@@ -1,10 +1,33 @@
 pub mod model;
 pub mod search;
 
+use thiserror::Error;
+use crate::model::profile::{CharacterParseError, SearchError};
+use crate::model::server::ServerParseError;
+use crate::model::standings::{FreeCompanyLeaderboardError, FreeCompanyParseError};
+
 // Lazy static client to avoid creating new ones every time
 #[cfg(blocking)]
 lazy_static::lazy_static! {
     static ref CLIENT: reqwest::blocking::Client = reqwest::blocking::Client::new();
+}
+
+#[derive(Debug, Error)]
+pub enum LodestoneError {
+    #[error("Search error {0}")]
+    SearchError(#[from] SearchError),
+    #[error("http error {0}")]
+    HttpError(#[from] reqwest::Error),
+    #[error("Error parsing server {0}")]
+    ServerParserError(#[from] ServerParseError),
+    #[error("Leaderboard error {0}")]
+    LeaderboardError(#[from] FreeCompanyLeaderboardError),
+    #[error("Freecompany parse error {0}")]
+    FreecompanyParseError(#[from] FreeCompanyParseError),
+    #[error("IO Error {0}")]
+    IOError(#[from] std::io::Error),
+    #[error("Error parsing character data {0}")]
+    CharacterParseError(#[from] CharacterParseError),
 }
 
 #[cfg(test)]

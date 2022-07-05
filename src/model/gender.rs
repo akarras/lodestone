@@ -1,8 +1,8 @@
-use failure::Fail;
 use std::str::FromStr;
+use thiserror::Error;
 
-#[derive(Clone, Debug, Fail)]
-#[fail(display = "Invalid gender string '{}'", _0)]
+#[derive(Clone, Debug, Error)]
+#[error("Invalid gender string '{0}'")]
 pub struct GenderParseError(String);
 
 /// Enumeration for the gender of a character.

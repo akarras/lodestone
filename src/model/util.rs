@@ -1,15 +1,16 @@
 #[cfg(blocking)]
 use crate::CLIENT;
-use failure::Error;
+use crate::LodestoneError;
 
 /// The URL base for profiles.
 static BASE_PROFILE_URL: &str = "https://na.finalfantasyxiv.com/lodestone/character/";
+
 
 pub(crate) async fn load_profile_url_async(
     client: &reqwest::Client,
     user_id: u32,
     subpage: Option<&str>,
-) -> Result<String, Error> {
+) -> Result<String, LodestoneError> {
     let subpage = match subpage {
         None => "".to_string(),
         Some(v) => format!("{}/", v),

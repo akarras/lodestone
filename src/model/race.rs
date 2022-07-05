@@ -1,8 +1,8 @@
-use failure::Fail;
 use std::str::FromStr;
+use thiserror::Error;
 
-#[derive(Clone, Debug, Fail)]
-#[fail(display = "Invalid race string '{}'", _0)]
+#[derive(Clone, Debug, Error)]
+#[error("Invalid race string '{0}'")]
 pub struct RaceParseError(String);
 
 /// Models the races available in XIV.

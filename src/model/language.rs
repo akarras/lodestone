@@ -1,8 +1,8 @@
-use failure::Fail;
 use std::str::FromStr;
+use thiserror::Error;
 
-#[derive(Clone, Debug, Fail)]
-#[fail(display = "Invalid language string '{}'", _0)]
+#[derive(Clone, Debug, Error)]
+#[error("Invalid language string '{0}'")]
 pub struct LanguageParseError(String);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

@@ -1,12 +1,12 @@
-use crate::model::datacenter::Datacenter;
+use crate::model::datacenter::{Datacenter, DatacenterParseError};
 use crate::model::server::ServerCategory::{Congested, New, Preferred, Standard};
-use failure::Error;
 use select::document::Document;
 use select::node::Node;
 use select::predicate::Class;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+use crate::LodestoneError;
 
 static SERVER_STATUS_URL: &'static str = "https://na.finalfantasyxiv.com/lodestone/worldstatus/";
 
@@ -22,6 +22,8 @@ pub enum ServerParseError {
     NodeMissing { node: String },
     #[error("invalid server status, found {}", actual)]
     CategoryParseError { actual: String },
+    #[error("{0}")]
+    DatacenterParseError(#[from] DatacenterParseError)
 }
 
 impl Display for CharacterAvailability {
@@ -59,7 +61,7 @@ pub enum ServerStatus {
 }
 
 impl ServerStatus {
-    fn parse_from(node: &Node) -> Result<ServerStatus, Error> {
+    fn parse_from(node: &Node) -> Result<ServerStatus, ServerParseError> {
         node.find(Class("world-ic__1"))
             .next()
             .ok_or(ServerParseError::NodeMissing {
@@ -104,7 +106,7 @@ pub enum ServerCategory {
 }
 
 impl ServerCategory {
-    fn parse_from(n: &Node) -> Result<Self, Error> {
+    fn parse_from(n: &Node) -> Result<Self, ServerParseError> {
         let node_text = n
             .find(Class("world-list__world_category"))
             .next()
@@ -159,10 +161,10 @@ pub struct DataCenterDetails {
 
 impl DataCenterDetails {
     /// Downloads the status of all servers including the character availability and preferred status.
-    pub async fn send_async(client: &reqwest::Client) -> Result<Vec<Self>, Error> {
+    pub async fn send_async(client: &reqwest::Client) -> Result<Vec<Self>, LodestoneError> {
         let value = client.get(SERVER_STATUS_URL).send().await?.text().await?;
         let document = Document::from(value.as_str());
-        Self::parse_from_doc(&document)
+        Ok(Self::parse_from_doc(&document)?)
     }
 
     /// *Blocking version*
@@ -175,7 +177,7 @@ impl DataCenterDetails {
         Ok(Self::parse_from_doc(document))
     }
 
-    fn parse_from_doc(doc: &Document) -> Result<Vec<Self>, Error> {
+    fn parse_from_doc(doc: &Document) -> Result<Vec<Self>, ServerParseError> {
         doc.find(Class("world-dcgroup__item"))
             .map(|dc| {
                 let name = dc
@@ -197,7 +199,7 @@ impl DataCenterDetails {
 }
 
 impl ServerDetails {
-    fn parse_from_doc(doc: &Node) -> Result<Vec<Self>, Error> {
+    fn parse_from_doc(doc: &Node) -> Result<Vec<Self>, ServerParseError> {
         doc.find(Class("world-list__item"))
             .map(|n| {
                 let status = ServerStatus::parse_from(&n)?;

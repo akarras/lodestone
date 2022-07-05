@@ -8,6 +8,7 @@ use thiserror::Error as ThisError;
 use select::document::Document;
 use select::node::Node;
 use select::predicate::{Class, Element, Name, Predicate};
+use crate::LodestoneError;
 use crate::model::standings::FreeCompanyParseError::{CreditsMissing, DataCenterMissing, FreeCompanyMissing, GrandCompanyMissing, RankingMissing, WorldNameMissing};
 
 #[derive(Debug)]
@@ -66,8 +67,6 @@ pub enum FreeCompanyParseError {
 pub enum FreeCompanyLeaderboardError {
     #[error("{0}")]
     FreeCompanyParseError(#[from] FreeCompanyParseError),
-    #[error("{0}")]
-    ReqwestError(#[from] reqwest::Error),
     #[error("{0}")]
     IOError(#[from] std::io::Error)
 }
@@ -134,14 +133,14 @@ impl FreeCompanyLeaderboardQuery {
         }
     }
 
-    pub async fn weekly(&self, week: Option<i32>) -> Result<Vec<FreeCompanyRankingResult>, FreeCompanyLeaderboardError> {
+    pub async fn weekly(&self, week: Option<i32>) -> Result<Vec<FreeCompanyRankingResult>, LodestoneError> {
         let week = week.map(|i| format!("/{i}")).unwrap_or_default();
         let response = reqwest::get(format!("{}weekly{week}?{}", Self::LEADERBOARD, self.get_query_parts())).await?;
         let document = Document::from_read(Cursor::new(response.bytes().await?))?;
         Ok(Self::parse_data(&document)?)
     }
 
-    pub async fn monthly(&self, month: Option<i32>) -> Result<Vec<FreeCompanyRankingResult>, FreeCompanyLeaderboardError> {
+    pub async fn monthly(&self, month: Option<i32>) -> Result<Vec<FreeCompanyRankingResult>, LodestoneError> {
         let month = month.map(|m| format!("/{m}")).unwrap_or_default();
         let response = reqwest::get(format!("{}monthly{month}?{}", Self::LEADERBOARD, self.get_query_parts())).await?;
         let document = Document::from_read(Cursor::new(response.bytes().await?))?;
