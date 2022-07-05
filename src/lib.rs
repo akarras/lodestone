@@ -1,10 +1,10 @@
 pub mod model;
 pub mod search;
 
-use thiserror::Error;
 use crate::model::profile::{CharacterParseError, SearchError};
 use crate::model::server::ServerParseError;
 use crate::model::standings::{FreeCompanyLeaderboardError, FreeCompanyParseError};
+use thiserror::Error;
 
 // Lazy static client to avoid creating new ones every time
 #[cfg(blocking)]

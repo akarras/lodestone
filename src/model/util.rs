@@ -1,10 +1,9 @@
+use crate::LodestoneError;
 #[cfg(blocking)]
 use crate::CLIENT;
-use crate::LodestoneError;
 
 /// The URL base for profiles.
 static BASE_PROFILE_URL: &str = "https://na.finalfantasyxiv.com/lodestone/character/";
-
 
 pub(crate) async fn load_profile_url_async(
     client: &reqwest::Client,

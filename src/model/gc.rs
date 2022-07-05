@@ -1,5 +1,5 @@
-use thiserror::Error;
 use std::str::FromStr;
+use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
 #[error("Invalid grand company string '{0}'")]

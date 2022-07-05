@@ -49,7 +49,7 @@ impl fmt::Display for Datacenter {
             Datacenter::Light => "Light",
             Datacenter::Mana => "Mana",
             Datacenter::Primal => "Primal",
-            Datacenter::Materia => "Materia"
+            Datacenter::Materia => "Materia",
         };
 
         write!(f, "{}", datacenter)

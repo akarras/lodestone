@@ -8,9 +8,9 @@ use crate::model::server::Server;
 #[cfg(blocking)]
 use crate::CLIENT;
 
+use crate::LodestoneError;
 use std::collections::HashSet;
 use std::fmt::Write;
-use crate::LodestoneError;
 
 static BASE_SEARCH_URL: &str = "https://na.finalfantasyxiv.com/lodestone/character/?";
 

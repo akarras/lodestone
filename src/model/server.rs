@@ -1,12 +1,12 @@
 use crate::model::datacenter::{Datacenter, DatacenterParseError};
 use crate::model::server::ServerCategory::{Congested, New, Preferred, Standard};
+use crate::LodestoneError;
 use select::document::Document;
 use select::node::Node;
 use select::predicate::Class;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
-use crate::LodestoneError;
 
 static SERVER_STATUS_URL: &str = "https://na.finalfantasyxiv.com/lodestone/worldstatus/";
 
@@ -23,7 +23,7 @@ pub enum ServerParseError {
     #[error("invalid server status, found {}", actual)]
     CategoryParseError { actual: String },
     #[error("{0}")]
-    DatacenterParseError(#[from] DatacenterParseError)
+    DatacenterParseError(#[from] DatacenterParseError),
 }
 
 impl Display for CharacterAvailability {
@@ -43,13 +43,14 @@ impl CharacterAvailability {
                 node: "world-ic__available".to_string(),
             })
             .map(|_| Self::CharactersAvailable)
-            .or_else(|_|node
-                .find(Class("world-ic__unavailable"))
-                .next()
-                .ok_or(ServerParseError::NodeMissing {
-                    node: "world-ic__unavailable".to_string(),
-                })
-                .map(|_| Self::CharactersUnavailable))
+            .or_else(|_| {
+                node.find(Class("world-ic__unavailable"))
+                    .next()
+                    .ok_or(ServerParseError::NodeMissing {
+                        node: "world-ic__unavailable".to_string(),
+                    })
+                    .map(|_| Self::CharactersUnavailable)
+            })
     }
 }
 
@@ -67,22 +68,33 @@ impl ServerStatus {
             .ok_or(ServerParseError::NodeMissing {
                 node: "world-ic__1".to_string(),
             })
-            .map(|_| Ok(ServerStatus::Online(ServerCategory::parse_from(node)?, CharacterAvailability::parse_from(node)?)))
-            .or_else(|_| node
-                .find(Class("world-ic__2"))
-                .next()
-                .ok_or(ServerParseError::NodeMissing {
-                    node: "world-ic__2".to_string(),
-                })
-                .map(|_| Ok(ServerStatus::PartialMaintenance(ServerCategory::parse_from(node)?, CharacterAvailability::parse_from(node)?))))
-            .or_else(|_| node
-                .find(Class("world-ic__3"))
-                .next()
-                .ok_or(ServerParseError::NodeMissing {
-                    node: "world-ic__3".to_string(),
-                })
-                .map(|_| Ok(ServerStatus::Maintenance)))?
-
+            .map(|_| {
+                Ok(ServerStatus::Online(
+                    ServerCategory::parse_from(node)?,
+                    CharacterAvailability::parse_from(node)?,
+                ))
+            })
+            .or_else(|_| {
+                node.find(Class("world-ic__2"))
+                    .next()
+                    .ok_or(ServerParseError::NodeMissing {
+                        node: "world-ic__2".to_string(),
+                    })
+                    .map(|_| {
+                        Ok(ServerStatus::PartialMaintenance(
+                            ServerCategory::parse_from(node)?,
+                            CharacterAvailability::parse_from(node)?,
+                        ))
+                    })
+            })
+            .or_else(|_| {
+                node.find(Class("world-ic__3"))
+                    .next()
+                    .ok_or(ServerParseError::NodeMissing {
+                        node: "world-ic__3".to_string(),
+                    })
+                    .map(|_| Ok(ServerStatus::Maintenance))
+            })?
     }
 }
 
@@ -102,7 +114,7 @@ pub enum ServerCategory {
     Standard,
     Preferred,
     Congested,
-    New
+    New,
 }
 
 impl ServerCategory {
@@ -150,7 +162,7 @@ impl FromStr for ServerCategory {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ServerDetails {
     pub name: String,
-    pub status: ServerStatus
+    pub status: ServerStatus,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -214,10 +226,7 @@ impl ServerDetails {
                     .trim()
                     .to_string();
 
-                Ok(ServerDetails {
-                    name,
-                    status
-                })
+                Ok(ServerDetails { name, status })
             })
             .collect()
     }

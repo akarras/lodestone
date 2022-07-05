@@ -1,15 +1,18 @@
 use crate::model::datacenter::{Datacenter, DatacenterParseError};
 use crate::model::gc::{GrandCompany, GrandCompanyParseError};
 use crate::model::server::{Server, ServerParseError};
+use crate::model::standings::FreeCompanyParseError::{
+    CreditsMissing, DataCenterMissing, FreeCompanyMissing, GrandCompanyMissing, RankingMissing,
+    WorldNameMissing,
+};
+use crate::LodestoneError;
+use select::document::Document;
+use select::node::Node;
+use select::predicate::{Class, Element, Name, Predicate};
 use std::fmt::Write;
 use std::io::Cursor;
 use std::num::ParseIntError;
 use thiserror::Error as ThisError;
-use select::document::Document;
-use select::node::Node;
-use select::predicate::{Class, Element, Name, Predicate};
-use crate::LodestoneError;
-use crate::model::standings::FreeCompanyParseError::{CreditsMissing, DataCenterMissing, FreeCompanyMissing, GrandCompanyMissing, RankingMissing, WorldNameMissing};
 
 #[derive(Debug)]
 pub struct FreeCompanyLeaderboardQuery {
@@ -23,7 +26,7 @@ pub struct FreeCompanyLeaderboardQuery {
     pub page: Option<u8>,
     /// Grand company to search the leaderboard for
     /// represented as gcid in the query, 1 = maelstrom, 2 = twinadder, 3 = immortal flames, None = all
-    pub grand_company: Option<GrandCompany>
+    pub grand_company: Option<GrandCompany>,
 }
 
 /// Represents the ranking of a free company
@@ -60,7 +63,7 @@ pub enum FreeCompanyParseError {
     #[error("Free company error {0}")]
     DatacenterParseError(#[from] DatacenterParseError),
     #[error("Free company error {0}")]
-    GrandCompanyParseError(#[from] GrandCompanyParseError)
+    GrandCompanyParseError(#[from] GrandCompanyParseError),
 }
 
 #[derive(Debug, ThisError)]
@@ -68,7 +71,7 @@ pub enum FreeCompanyLeaderboardError {
     #[error("{0}")]
     FreeCompanyParseError(#[from] FreeCompanyParseError),
     #[error("{0}")]
-    IOError(#[from] std::io::Error)
+    IOError(#[from] std::io::Error),
 }
 
 impl FreeCompanyLeaderboardQuery {
@@ -97,7 +100,12 @@ impl FreeCompanyLeaderboardQuery {
     fn parse_node(row: &Node) -> Result<FreeCompanyRankingResult, FreeCompanyParseError> {
         let mut children = row.children().filter(|e| Element.matches(e));
 
-        let ranking = children.next().ok_or(RankingMissing)?.text().trim().parse()?;
+        let ranking = children
+            .next()
+            .ok_or(RankingMissing)?
+            .text()
+            .trim()
+            .parse()?;
         let _ = children.next(); // crest
         let free_company_data = children.next().ok_or(FreeCompanyMissing)?;
         // h4 = fc name, p = Server [Datacenter]
@@ -109,40 +117,70 @@ impl FreeCompanyLeaderboardQuery {
         // dc text should be [Datacenter], remove []'s so it can be parsed
         let datacenter = server_str.next().ok_or(DataCenterMissing)?;
         let datacenter = datacenter[1..datacenter.len() - 1].parse()?;
-        let grand_company = children.next().ok_or(GrandCompanyMissing)?.find(Element).next().ok_or(GrandCompanyMissing)?.attr("alt").ok_or(GrandCompanyMissing)?.parse()?;
-        let company_credits = children.next().ok_or(CreditsMissing)?.text().trim().parse()?;
+        let grand_company = children
+            .next()
+            .ok_or(GrandCompanyMissing)?
+            .find(Element)
+            .next()
+            .ok_or(GrandCompanyMissing)?
+            .attr("alt")
+            .ok_or(GrandCompanyMissing)?
+            .parse()?;
+        let company_credits = children
+            .next()
+            .ok_or(CreditsMissing)?
+            .text()
+            .trim()
+            .parse()?;
         Ok(FreeCompanyRankingResult {
             ranking,
             free_company_name,
             world_name,
             datacenter,
             grand_company,
-            company_credits
+            company_credits,
         })
     }
 
-    fn parse_data(document: &Document) -> Result<Vec<FreeCompanyRankingResult>, FreeCompanyParseError> {
-
+    fn parse_data(
+        document: &Document,
+    ) -> Result<Vec<FreeCompanyRankingResult>, FreeCompanyParseError> {
         if let Some(table) = document.find(Class("ranking-character")).next() {
-            table.find(Name("tr")).map(|row| {
-                Self::parse_node(&row)
-            })
+            table
+                .find(Name("tr"))
+                .map(|row| Self::parse_node(&row))
                 .collect()
         } else {
             Err(FreeCompanyParseError::TableNotFound)
         }
     }
 
-    pub async fn weekly(&self, week: Option<i32>) -> Result<Vec<FreeCompanyRankingResult>, LodestoneError> {
+    pub async fn weekly(
+        &self,
+        week: Option<i32>,
+    ) -> Result<Vec<FreeCompanyRankingResult>, LodestoneError> {
         let week = week.map(|i| format!("/{i}")).unwrap_or_default();
-        let response = reqwest::get(format!("{}weekly{week}?{}", Self::LEADERBOARD, self.get_query_parts())).await?;
+        let response = reqwest::get(format!(
+            "{}weekly{week}?{}",
+            Self::LEADERBOARD,
+            self.get_query_parts()
+        ))
+        .await?;
         let document = Document::from_read(Cursor::new(response.bytes().await?))?;
         Ok(Self::parse_data(&document)?)
     }
 
-    pub async fn monthly(&self, month: Option<i32>) -> Result<Vec<FreeCompanyRankingResult>, LodestoneError> {
+    pub async fn monthly(
+        &self,
+        month: Option<i32>,
+    ) -> Result<Vec<FreeCompanyRankingResult>, LodestoneError> {
         let month = month.map(|m| format!("/{m}")).unwrap_or_default();
-        let response = reqwest::get(format!("{}monthly{month}?{}", Self::LEADERBOARD, self.get_query_parts())).await?;
+        let response = reqwest::get(format!(
+            "{}monthly{month}?{}",
+            Self::LEADERBOARD,
+            self.get_query_parts()
+        ))
+        .await?;
         let document = Document::from_read(Cursor::new(response.bytes().await?))?;
         Ok(Self::parse_data(&document)?)
     }
@@ -159,7 +197,7 @@ mod test {
             world_name: None,
             dc_group: None,
             page: None,
-            grand_company: None
+            grand_company: None,
         };
 
         let weekly = query.weekly(None).await.unwrap();

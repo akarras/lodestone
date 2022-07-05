@@ -1,10 +1,14 @@
-use std::num::ParseIntError;
+use crate::{LodestoneError, ServerParseError};
 use select::document::Document;
 use select::predicate::{Class, Name};
-use thiserror::Error;
+use std::num::ParseIntError;
 use std::str::FromStr;
-use crate::{LodestoneError, ServerParseError};
+use thiserror::Error;
 
+use crate::model::clan::ClanParseError;
+use crate::model::class::ClassTypeParseError;
+use crate::model::gender::GenderParseError;
+use crate::model::race::RaceParseError;
 use crate::model::{
     attribute::{Attribute, Attributes},
     clan::Clan,
@@ -13,10 +17,6 @@ use crate::model::{
     race::Race,
     server::Server,
 };
-use crate::model::clan::ClanParseError;
-use crate::model::class::ClassTypeParseError;
-use crate::model::gender::GenderParseError;
-use crate::model::race::RaceParseError;
 
 use crate::model::util::load_profile_url_async;
 #[cfg(blocking)]
@@ -42,7 +42,7 @@ pub enum SearchError {
     #[error("class type error {0}")]
     ClassTypeError(#[from] ClassTypeParseError),
     #[error("Race parse error {0}")]
-    RaceParseError(#[from] RaceParseError)
+    RaceParseError(#[from] RaceParseError),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -61,9 +61,11 @@ macro_rules! ensure_node {
     }};
 
     ($doc:ident, $search:expr, $nth:expr) => {{
-        $doc.find($search).nth($nth).ok_or(SearchError::NodeNotFound(
-                stringify!($search, "(", $nth, ")")
-            ))?
+        $doc.find($search)
+            .nth($nth)
+            .ok_or(SearchError::NodeNotFound(stringify!(
+                $search, "(", $nth, ")"
+            )))?
     }};
 }
 
@@ -73,28 +75,34 @@ pub struct CharacterImages {
     /// Small character avatar
     pub avatar_small: String,
     /// Full body image of the character
-    pub full_body: String
+    pub full_body: String,
 }
 
 #[derive(Clone, Debug, Error)]
 pub enum CharacterParseError {
     #[error("src was missing on node {node}")]
-    UrlMissing{ node: String },
+    UrlMissing { node: String },
     #[error("unable to find node {node} with an image")]
-    NodeMissing{ node: String}
+    NodeMissing { node: String },
 }
 
 impl CharacterImages {
     fn parse(doc: &Document) -> Result<Self, LodestoneError> {
-        let face_url = ensure_node!(doc, Class("character-block__face")).attr("src").ok_or(CharacterParseError::UrlMissing {node: "character-block__face".into()})?;
+        let face_url = ensure_node!(doc, Class("character-block__face"))
+            .attr("src")
+            .ok_or(CharacterParseError::UrlMissing {
+                node: "character-block__face".into(),
+            })?;
         let node = "js__image_popup".to_string();
-        let body = doc.find(Class(node.as_str())).next()
+        let body = doc
+            .find(Class(node.as_str()))
+            .next()
             .ok_or_else(|| CharacterParseError::NodeMissing { node: node.clone() })?
             .attr("href")
             .ok_or(CharacterParseError::UrlMissing { node })?;
         Ok(Self {
             avatar_small: face_url.to_string(),
-            full_body: body.to_string()
+            full_body: body.to_string(),
         })
     }
 }
@@ -139,7 +147,7 @@ pub struct Profile {
     /// A list of classes and their corresponding levels.
     classes: Classes,
     /// Collection of character images
-    pub character_images: CharacterImages
+    pub character_images: CharacterImages,
 }
 
 impl Profile {
@@ -221,7 +229,9 @@ impl Profile {
     }
 
     fn parse_title(doc: &Document) -> Option<String> {
-        doc.find(Class("frame__chara__title")).next().map(|node| node.text())
+        doc.find(Class("frame__chara__title"))
+            .next()
+            .map(|node| node.text())
     }
 
     fn parse_name(doc: &Document) -> Result<String, SearchError> {
@@ -242,9 +252,14 @@ impl Profile {
 
     fn parse_server(doc: &Document) -> Result<Server, SearchError> {
         let text = ensure_node!(doc, Class("frame__chara__world")).text();
-        let server = text.split('\u{A0}').next().ok_or(SearchError::InvalidData("Could not find server string."))?;
+        let server = text
+            .split('\u{A0}')
+            .next()
+            .ok_or(SearchError::InvalidData("Could not find server string."))?;
         // Servers now show as Server Name [Datacenter]
-        Ok(Server::from_str(server.split(' ').next().ok_or(SearchError::InvalidData("Server string was empty"))?)?)
+        Ok(Server::from_str(server.split(' ').next().ok_or(
+            SearchError::InvalidData("Server string was empty"),
+        )?)?)
     }
 
     fn parse_char_info(doc: &Document) -> Result<CharInfo, SearchError> {
@@ -261,9 +276,8 @@ impl Profile {
             .collect::<Vec<String>>();
 
         if char_info.len() == 3 || char_info.len() == 4 {
-            return Err(SearchError::InvalidData("character block name"))
+            return Err(SearchError::InvalidData("character block name"));
         }
-
 
         //  If the length is 4, then the race is "Au Ra"
         if char_info.len() == 4 {
@@ -297,15 +311,26 @@ impl Profile {
                 .count()
                 == 1
             {
-                mp = Some(SecondaryAttribute::MP(ensure_node!(item, Name("span")).text().parse::<u32>()?));
-            } else if item.find(Class("character__param__text__gp--en-us")).count() == 1 {
-                mp = Some(SecondaryAttribute::GP(ensure_node!(item, Name("span")).text().parse::<u32>()?));
+                mp = Some(SecondaryAttribute::MP(
+                    ensure_node!(item, Name("span")).text().parse::<u32>()?,
+                ));
+            } else if item
+                .find(Class("character__param__text__gp--en-us"))
+                .count()
+                == 1
+            {
+                mp = Some(SecondaryAttribute::GP(
+                    ensure_node!(item, Name("span")).text().parse::<u32>()?,
+                ));
             } else {
                 continue;
             }
         }
 
-        Ok((hp.ok_or(SearchError::NodeNotFound("HP not found"))?, mp.ok_or(SearchError::InvalidData("MP or GP not found"))?))
+        Ok((
+            hp.ok_or(SearchError::NodeNotFound("HP not found"))?,
+            mp.ok_or(SearchError::InvalidData("MP or GP not found"))?,
+        ))
     }
 
     fn parse_attributes(doc: &Document) -> Result<Attributes, SearchError> {
@@ -335,8 +360,12 @@ impl Profile {
                     level => {
                         let text = ensure_node!(item, Class("character__job__exp")).text();
                         let mut parts = text.split(" / ");
-                        let current_xp = parts.next().ok_or(SearchError::InvalidData("character__job__exp"))?;
-                        let max_xp = parts.next().ok_or(SearchError::InvalidData("character__job__exp"))?;
+                        let current_xp = parts
+                            .next()
+                            .ok_or(SearchError::InvalidData("character__job__exp"))?;
+                        let max_xp = parts
+                            .next()
+                            .ok_or(SearchError::InvalidData("character__job__exp"))?;
                         Some(ClassInfo {
                             level: level.parse()?,
                             current_xp: match current_xp {
@@ -352,7 +381,10 @@ impl Profile {
                 };
 
                 //  For classes that have multiple titles (e.g., Paladin / Gladiator), grab the first one.
-                let name = name.split(" / ").next().ok_or(SearchError::InvalidData("character__job__name"))?;
+                let name = name
+                    .split(" / ")
+                    .next()
+                    .ok_or(SearchError::InvalidData("character__job__name"))?;
 
                 let class = ClassType::from_str(name)?;
 
