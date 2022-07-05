@@ -111,6 +111,7 @@ impl CharacterImages {
 pub enum SecondaryAttribute {
     MP(u32),
     GP(u32),
+    CP(u32),
 }
 
 /// Holds all the data for a profile retrieved via Lodestone.
@@ -275,7 +276,8 @@ impl Profile {
             .map(|e| e.replace('_', " "))
             .collect::<Vec<String>>();
 
-        if char_info.len() == 3 || char_info.len() == 4 {
+        println!("{:?}", char_info);
+        if !(char_info.len() == 3 || char_info.len() == 4) {
             return Err(SearchError::InvalidData("character block name"));
         }
 
@@ -298,7 +300,7 @@ impl Profile {
     fn parse_char_param(doc: &Document) -> Result<(u32, SecondaryAttribute), SearchError> {
         let attr_block = ensure_node!(doc, Class("character__param"));
         let mut hp = None;
-        let mut mp = None;
+        let mut secondary_attribute = None;
         for item in attr_block.find(Name("li")) {
             if item
                 .find(Class("character__param__text__hp--en-us"))
@@ -311,7 +313,7 @@ impl Profile {
                 .count()
                 == 1
             {
-                mp = Some(SecondaryAttribute::MP(
+                secondary_attribute = Some(SecondaryAttribute::MP(
                     ensure_node!(item, Name("span")).text().parse::<u32>()?,
                 ));
             } else if item
@@ -319,7 +321,15 @@ impl Profile {
                 .count()
                 == 1
             {
-                mp = Some(SecondaryAttribute::GP(
+                secondary_attribute = Some(SecondaryAttribute::GP(
+                    ensure_node!(item, Name("span")).text().parse::<u32>()?,
+                ));
+            } else if item
+                .find(Class("character__param__text__mp--en-us"))
+                .count()
+                == 1
+            {
+                secondary_attribute = Some(SecondaryAttribute::CP(
                     ensure_node!(item, Name("span")).text().parse::<u32>()?,
                 ));
             } else {
@@ -329,7 +339,7 @@ impl Profile {
 
         Ok((
             hp.ok_or(SearchError::NodeNotFound("HP not found"))?,
-            mp.ok_or(SearchError::InvalidData("MP or GP not found"))?,
+            secondary_attribute.ok_or(SearchError::InvalidData("MP or GP not found"))?,
         ))
     }
 

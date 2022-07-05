@@ -24,6 +24,8 @@ pub enum ServerParseError {
     CategoryParseError { actual: String },
     #[error("{0}")]
     DatacenterParseError(#[from] DatacenterParseError),
+    #[error("Lodestone is down for maintenance")]
+    Maintenance,
 }
 
 impl Display for CharacterAvailability {
@@ -190,6 +192,9 @@ impl DataCenterDetails {
     }
 
     fn parse_from_doc(doc: &Document) -> Result<Vec<Self>, ServerParseError> {
+        if doc.find(Class("maintenance__text")).next().is_some() {
+            return Err(ServerParseError::Maintenance);
+        }
         doc.find(Class("world-dcgroup__item"))
             .map(|dc| {
                 let name = dc
@@ -215,7 +220,6 @@ impl ServerDetails {
         doc.find(Class("world-list__item"))
             .map(|n| {
                 let status = ServerStatus::parse_from(&n)?;
-
                 let name = n
                     .find(Class("world-list__world_name"))
                     .next()
@@ -244,10 +248,8 @@ pub enum Server {
     Garuda,
     Gungnir,
     Kujata,
-    Ramuh,
     Tonberry,
     Typhon,
-    Unicorn,
     //  Gaia
     Alexander,
     Bahamut,
@@ -257,22 +259,25 @@ pub enum Server {
     Ridill,
     Tiamat,
     Ultima,
-    Valefor,
-    Yojimbo,
-    Zeromus,
     //  Mana
     Anima,
     Asura,
-    Belias,
     Chocobo,
     Hades,
     Ixion,
-    Mandragora,
     Masamune,
     Pandaemonium,
-    Shinryu,
     Titan,
-    //  Aether
+    // Meteor
+    Belias,
+    Mandragora,
+    Ramuh,
+    Shinryu,
+    Unicorn,
+    Valefor,
+    Yojimbo,
+    Zeromus,
+    // Aether
     Adamantoise,
     Cactuar,
     Faerie,
@@ -530,6 +535,7 @@ mod test {
             Datacenter::Crystal,
             Datacenter::Chaos,
             Datacenter::Light,
+            Datacenter::Meteor,
         ];
         for (i, x) in parsed_dc.iter().enumerate() {
             assert_eq!(*known_dc.get(i).unwrap(), x.name);
