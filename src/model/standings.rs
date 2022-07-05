@@ -37,7 +37,7 @@ pub struct FreeCompanyRankingResult {
 }
 
 #[derive(Debug, ThisError)]
-enum FreeCompanyParseError {
+pub enum FreeCompanyParseError {
     #[error("Couldn't find the table")]
     TableNotFound,
     #[error("Ranking missing")]

@@ -9,13 +9,14 @@ lazy_static::lazy_static! {
 
 #[cfg(test)]
 mod tests {
-    use crate::model::profile::Profile;
+    use crate::model::profile::{Profile, SecondaryAttribute};
 
     #[tokio::test]
     async fn can_grab_profile() {
         use crate::model::profile::Profile;
         let client = reqwest::Client::new();
         Profile::get_async(&client, 11908971).await.unwrap();
+        Profile::get_async(&client, 38686892).await.unwrap();
     }
 
     #[tokio::test]
@@ -74,7 +75,7 @@ mod tests {
         assert_eq!(strawberry.level(ClassType::BlackMage), Some(70));
         // These stats were assumed to be correct after endwalker stat squish
         assert_eq!(strawberry.hp, 15141);
-        assert_eq!(strawberry.mp, 10000);
+        assert_eq!(strawberry.mp_or_gp, SecondaryAttribute::MP(10000));
 
         let attribs = &strawberry.attributes;
 

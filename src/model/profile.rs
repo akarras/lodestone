@@ -87,6 +87,12 @@ impl CharacterImages {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SecondaryAttribute {
+    MP(u32),
+    GP(u32),
+}
+
 /// Holds all the data for a profile retrieved via Lodestone.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Profile {
@@ -115,7 +121,7 @@ pub struct Profile {
     /// Max HP.
     pub hp: u32,
     /// Max MP.
-    pub mp: u32,
+    pub mp_or_gp: SecondaryAttribute,
     /// A list of attributes and their values.
     pub attributes: Attributes,
     /// A list of classes and their corresponding levels.
@@ -168,7 +174,7 @@ impl Profile {
             clan: char_info.clan,
             gender: char_info.gender,
             hp,
-            mp,
+            mp_or_gp: mp,
             attributes: Self::parse_attributes(&main_doc)?,
             classes: Self::parse_classes(&classes_doc)?,
             character_images: CharacterImages::parse(&main_doc)?,
@@ -271,7 +277,7 @@ impl Profile {
         }
     }
 
-    fn parse_char_param(doc: &Document) -> Result<(u32, u32), Error> {
+    fn parse_char_param(doc: &Document) -> Result<(u32, SecondaryAttribute), Error> {
         let attr_block = ensure_node!(doc, Class("character__param"));
         let mut hp = None;
         let mut mp = None;
@@ -287,16 +293,15 @@ impl Profile {
                 .count()
                 == 1
             {
-                mp = Some(ensure_node!(item, Name("span")).text().parse::<u32>()?);
+                mp = Some(SecondaryAttribute::MP(ensure_node!(item, Name("span")).text().parse::<u32>()?));
+            } else if item.find(Class("character__param__text__gp--en-us")).count() == 1 {
+                mp = Some(SecondaryAttribute::GP(ensure_node!(item, Name("span")).text().parse::<u32>()?));
             } else {
                 continue;
             }
         }
-        ensure!(
-            hp.is_some() && mp.is_some(),
-            SearchError::InvalidData("character__param".into())
-        );
-        Ok((hp.unwrap(), mp.unwrap()))
+
+        Ok((hp.ok_or(failure::err_msg("HP not found"))?, mp.ok_or(failure::err_msg("MP or GP not found"))?))
     }
 
     fn parse_attributes(doc: &Document) -> Result<Attributes, Error> {
