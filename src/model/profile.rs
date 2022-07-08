@@ -170,7 +170,6 @@ impl Profile {
         let profile_page = load_profile_url_async(client, user_id, None).await?;
         let main_doc = Document::from(profile_page.as_str());
         let classes_doc = Document::from(class_page.as_str());
-
         //  Holds the string for Race, Clan, and Gender in that order
         Profile::parse_profile(user_id, &main_doc, &classes_doc)
     }
@@ -276,7 +275,6 @@ impl Profile {
             .map(|e| e.replace('_', " "))
             .collect::<Vec<String>>();
 
-        println!("{:?}", char_info);
         if !(char_info.len() == 3 || char_info.len() == 4) {
             return Err(SearchError::InvalidData("character block name"));
         }
@@ -339,7 +337,7 @@ impl Profile {
 
         Ok((
             hp.ok_or(SearchError::NodeNotFound("HP not found"))?,
-            secondary_attribute.ok_or(SearchError::InvalidData("MP or GP not found"))?,
+            secondary_attribute.ok_or(SearchError::InvalidData("MP/GP/CP not found"))?,
         ))
     }
 

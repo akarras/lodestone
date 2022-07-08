@@ -28,11 +28,18 @@ pub enum LodestoneError {
     IOError(#[from] std::io::Error),
     #[error("Error parsing character data {0}")]
     CharacterParseError(#[from] CharacterParseError),
+    #[error("Character id {0} was not found")]
+    CharacterNotFound(u32),
 }
 
 #[cfg(test)]
 mod tests {
     use crate::model::profile::{Profile, SecondaryAttribute};
+    use crate::LodestoneError;
+    use rand::prelude::IteratorRandom;
+    use rand::thread_rng;
+    use std::borrow::Borrow;
+    use std::time::Duration;
 
     #[tokio::test]
     async fn can_grab_profile() {
@@ -40,6 +47,24 @@ mod tests {
         let client = reqwest::Client::new();
         Profile::get_async(&client, 11908971).await.unwrap();
         Profile::get_async(&client, 38686892).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn random_profile_test() {
+        // Grab random profiles and tests them
+        let client = reqwest::Client::new();
+        for _ in 0..10 {
+            let user_id = (0..=40004000).choose(&mut thread_rng()).unwrap();
+            println!("Checking {}", user_id);
+            if let Err(e) = Profile::get_async(&client, user_id).await {
+                match e {
+                    // We might not actually find a character
+                    LodestoneError::CharacterNotFound(_) => {}
+                    _ => panic!("Error parsing"),
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
     }
 
     #[tokio::test]
