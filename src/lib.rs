@@ -59,7 +59,7 @@ mod tests {
             if let Err(e) = Profile::get_async(&client, user_id).await {
                 match e {
                     // We might not actually find a character
-                    LodestoneError::CharacterNotFound(_) => continue;
+                    LodestoneError::CharacterNotFound(_) => continue,
                     _ => panic!("Error parsing"),
                 }
             }
