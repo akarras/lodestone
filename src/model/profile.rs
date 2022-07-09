@@ -323,7 +323,7 @@ impl Profile {
                     ensure_node!(item, Name("span")).text().parse::<u32>()?,
                 ));
             } else if item
-                .find(Class("character__param__text__mp--en-us"))
+                .find(Class("character__param__text__cp--en-us"))
                 .count()
                 == 1
             {
