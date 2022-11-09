@@ -304,6 +304,11 @@ pub enum Server {
     Malboro,
     Mateus,
     Zalera,
+    // Dynamis
+    Halicarnassus,
+    Maduin,
+    Marilith,
+    Seraph,
     //  Chaos
     Cerberus,
     Louisoix,
@@ -393,6 +398,11 @@ impl FromStr for Server {
             "LEVIATHAN" => Ok(Server::Leviathan),
             "MALBORO" => Ok(Server::Malboro),
             "ULTROS" => Ok(Server::Ultros),
+            // Dynamis
+            "HALICARNASSUS" => Ok(Server::Halicarnassus),
+            "MADUIN" => Ok(Server::Maduin),
+            "MARILITH" => Ok(Server::Marilith),
+            "SERAPH" => Ok(Server::Seraph),
             //  Chaos
             "CERBERUS" => Ok(Server::Cerberus),
             "LOUISOIX" => Ok(Server::Louisoix),
@@ -501,6 +511,10 @@ impl fmt::Display for Server {
             Server::Sephirot => "Sephirot",
             Server::Sophia => "Sophia",
             Server::Zurvan => "Zurvan",
+            Server::Halicarnassus => "Halicarnassus",
+            Server::Maduin => "Maduin",
+            Server::Marilith => "Marilith",
+            Server::Seraph => "Seraph",
         };
 
         write!(f, "{}", server)

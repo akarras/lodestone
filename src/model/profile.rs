@@ -150,7 +150,7 @@ pub struct Profile {
     /// Collection of character images
     pub character_images: CharacterImages,
     /// Character's bio introduction
-    pub self_introduction: String
+    pub self_introduction: String,
 }
 
 impl Profile {
