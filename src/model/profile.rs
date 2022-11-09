@@ -149,6 +149,8 @@ pub struct Profile {
     classes: Classes,
     /// Collection of character images
     pub character_images: CharacterImages,
+    /// Character's bio introduction
+    pub self_introduction: String
 }
 
 impl Profile {
@@ -198,6 +200,7 @@ impl Profile {
             attributes: Self::parse_attributes(main_doc)?,
             classes: Self::parse_classes(classes_doc)?,
             character_images: CharacterImages::parse(main_doc)?,
+            self_introduction: Self::parse_self_introduction(main_doc)?,
         };
         Ok(value)
     }
@@ -417,5 +420,9 @@ impl Profile {
         }
 
         Ok(classes)
+    }
+
+    fn parse_self_introduction(doc: &Document) -> Result<String, SearchError> {
+        Ok(ensure_node!(doc, Class("character__selfintroduction")).text())
     }
 }
