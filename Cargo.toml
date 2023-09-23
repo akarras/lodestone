@@ -14,7 +14,7 @@ license = "MIT"
 [dependencies]
 lazy_static = "1.4.0"
 reqwest = {version = "0.11.11", default-features = false}
-select = "0.5.0"
+select = "0.6.0"
 thiserror = "1.0.31"
 
 [dev-dependencies]
