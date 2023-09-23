@@ -10,6 +10,7 @@ pub enum Datacenter {
     Aether,
     Chaos,
     Crystal,
+    Dynamis,
     Elemental,
     Gaia,
     Light,
@@ -35,6 +36,7 @@ impl FromStr for Datacenter {
             "PRIMAL" => Ok(Datacenter::Primal),
             "MATERIA" => Ok(Datacenter::Materia),
             "METEOR" => Ok(Datacenter::Meteor),
+            "DYNAMIS" => Ok(Datacenter::Dynamis),
             x => Err(DatacenterParseError(x.into())),
         }
     }
@@ -53,6 +55,7 @@ impl fmt::Display for Datacenter {
             Datacenter::Primal => "Primal",
             Datacenter::Materia => "Materia",
             Datacenter::Meteor => "Meteor",
+            Datacenter::Dynamis => "Dynamis",
         };
 
         write!(f, "{}", datacenter)

@@ -316,10 +316,14 @@ pub enum Server {
     Omega,
     Ragnarok,
     Spriggan,
+    Sagittarius,
+    Phantom,
     //  Light
+    Alpha,
     Lich,
     Odin,
     Phoenix,
+    Raiden,
     Shiva,
     Twintania,
     Zodiark,
@@ -410,8 +414,12 @@ impl FromStr for Server {
             "OMEGA" => Ok(Server::Omega),
             "RAGNAROK" => Ok(Server::Ragnarok),
             "SPRIGGAN" => Ok(Server::Spriggan),
+            "SAGITTARIUS" => Ok(Server::Sagittarius),
+            "PHANTOM" => Ok(Server::Phantom),
             //  Light
+            "ALPHA" => Ok(Server::Alpha),
             "LICH" => Ok(Server::Lich),
+            "RAIDEN" => Ok(Server::Raiden),
             "ODIN" => Ok(Server::Odin),
             "PHOENIX" => Ok(Server::Phoenix),
             "SHIVA" => Ok(Server::Shiva),
@@ -499,6 +507,9 @@ impl fmt::Display for Server {
             Server::Omega => "Omega",
             Server::Ragnarok => "Ragnarok",
             Server::Spriggan => "Spriggan",
+            Server::Sagittarius => "Sagittarius",
+            Server::Phantom => "Phantom",
+            Server::Alpha => "Alpha",
             //  Light
             Server::Lich => "Lich",
             Server::Odin => "Odin",
@@ -515,6 +526,7 @@ impl fmt::Display for Server {
             Server::Maduin => "Maduin",
             Server::Marilith => "Marilith",
             Server::Seraph => "Seraph",
+            Server::Raiden => "Raiden",
         };
 
         write!(f, "{}", server)
