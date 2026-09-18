@@ -18,8 +18,8 @@ select = "0.6.0"
 thiserror = "1.0.31"
 
 [dev-dependencies]
-tokio = {version = "1.21.0", features = ["rt-multi-thread", "macros"]}
-rand = "0.8.5"
+tokio = {version = "1.38.2", features = ["rt-multi-thread", "macros"]}
+rand = "0.8.6"
 
 [features]
 blocking = ["reqwest/blocking"]
